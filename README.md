@@ -1,3 +1,19 @@
+<p align="center">
+  <a href="https://xeet.click"><img src=".github/banner.png" alt="Xeet — swap at the speed of 𝕏" width="100%"></a>
+</p>
+
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/nmfjmkkgealdnpgnfgkgflkpimgdklfc"><b>Add to Chrome</b></a>
+  ·
+  <a href="https://xeet.click"><b>xeet.click</b></a>
+  ·
+  <a href="https://xeet.click/privacy">Privacy</a>
+  ·
+  <a href="https://xeet.click/terms">Terms</a>
+  ·
+  <a href="https://x.com/Xeet_click">@Xeet_click</a>
+</p>
+
 # Xeet
 
 Swap at the speed of 𝕏. A Chrome extension that turns every cashtag and
@@ -161,3 +177,17 @@ shapes: `site/xeet-extension.zip` has the folder inside it for "Load
 unpacked", and `dist/xeet-store.zip` has `manifest.json` at the root, which is
 what the Chrome Web Store requires. See [STORE.md](STORE.md) for the listing
 copy, the graphics, and a justification for every permission.
+
+---
+
+## Links
+
+| | |
+|---|---|
+| Site | [xeet.click](https://xeet.click) |
+| Install | [Chrome Web Store](https://chromewebstore.google.com/detail/nmfjmkkgealdnpgnfgkgflkpimgdklfc) |
+| Privacy policy | [xeet.click/privacy](https://xeet.click/privacy) |
+| Terms | [xeet.click/terms](https://xeet.click/terms) |
+| X | [@Xeet_click](https://x.com/Xeet_click) |
+
+Built by [XeetDeveloper](https://github.com/XeetDeveloper) · [xeet.click](https://xeet.click)
