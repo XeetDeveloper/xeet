@@ -1,0 +1,150 @@
+/* Xeet — what the extension adds to x.com, and nothing more.
+ *
+ * Two objects live here: the mark painted on a cashtag in the timeline, and
+ * the host the panel is mounted into. The panel's own appearance is loupe.css
+ * — the product's stylesheet, unchanged — so this file never restyles it.
+ *
+ * Everything is namespaced .xeet-. x.com ships utility classes named after
+ * their values (r-1kihuf0 and friends) which change with every deploy; nothing
+ * here reads or overrides one, so a redesign of the timeline cannot take the
+ * panel with it. */
+
+/* ------------------------------------------------------------- the mark */
+/* A cashtag X already renders as a link, plus contract addresses we wrap
+   ourselves.
+
+   THE MARK IS DRAWN IN currentColor, not in a colour of our own. x.com ships
+   three themes — light, dim and lights-out — and a monochrome product has no
+   hue to stay visible across all three: a white rule is invisible on the
+   light theme and a black one is invisible on the dark. currentColor is the
+   post's own text colour, so the mark is always exactly as visible as the
+   words it sits under, whichever theme the reader chose.
+
+   The run stage then rides the rule's SHAPE rather than its colour: dotted at
+   rest, dashed when warm, solid when running, doubled when sending. */
+.xeet-tag {
+  border-bottom: 1px dotted color-mix(in srgb, currentColor 45%, transparent);
+  border-radius: 3px;
+  padding: 0 1px;
+  margin: 0 -1px;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.xeet-tag:hover,
+.xeet-tag.xeet-live {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  border-bottom-color: currentColor;
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 30%, transparent);
+}
+
+/* A contract address inside a post is a 44-character wall of base58. It gets
+   the same mark, plus a monospace face so the eye can check it against a
+   wallet screen instead of trusting it. */
+.xeet-ca {
+  font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  font-size: .94em;
+  word-break: break-all;
+}
+
+/* THE RUN STAGE, painted on the tag before anyone hovers it.
+   Three states and no fourth: quiet is the absence of a mark, which is why
+   there is no .xeet-quiet rule. A state meaning "nothing is happening" would
+   be paint on 95% of the timeline. */
+.xeet-tag.xeet-warm {
+  border-bottom-style: dashed;
+  border-bottom-color: color-mix(in srgb, currentColor 70%, transparent);
+}
+.xeet-tag.xeet-running {
+  border-bottom: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.xeet-tag.xeet-sending {
+  border-bottom: 2px solid currentColor;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+  animation: xeetTagPulse 2.2s ease-in-out infinite;
+}
+@keyframes xeetTagPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 22%, transparent); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent); }
+}
+
+/* ------------------------------------------------------------- the host */
+/* Absolutely positioned in page coordinates, so it rides the timeline instead
+   of floating over it while the feed scrolls underneath. The z-index clears
+   x.com's own modal layer (which tops out in the 1000s) by a wide margin —
+   a panel half-behind a compose box is a panel you cannot click. */
+.xeet-host {
+  position: absolute;
+  z-index: 2147483000;
+  width: 360px;
+  /* The card is 3D and its deck is raised on the z axis; the host must not
+     flatten that or the deck loses its lift. */
+  transform-style: preserve-3d;
+}
+.xeet-host.xeet-hidden { display: none; }
+
+/* The panel's own root inside the host. loupe.css sizes it; this only gives
+   the fonts a home, because x.com's body font would otherwise leak in. */
+.xeet-host .xeet-lp {
+  position: relative;
+  font-family: 'Inter', system-ui, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  text-align: left;
+  line-height: 1.5;
+}
+.xeet-host .xeet-lp * { box-sizing: border-box; }
+.xeet-host .xeet-lp button,
+.xeet-host .xeet-lp input { font-family: inherit; }
+
+/* The panel opens under the cursor; a timeline click landing on the post
+   behind it would open a thread and take the panel with it. */
+.xeet-host .loupe { pointer-events: auto; }
+
+/* Loading and error states reuse the intel card so the panel never changes
+   shape between "asking" and "answered" — it fills in, it does not appear. */
+.xeet-lp .xeet-skel {
+  background: linear-gradient(90deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .11), rgba(255, 255, 255, .05));
+  background-size: 200% 100%;
+  border-radius: 5px;
+  animation: xeetSkel 1.15s linear infinite;
+  color: transparent !important;
+}
+@keyframes xeetSkel { to { background-position: -200% 0; } }
+
+.xeet-lp .xeet-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 7px; padding: 26px 18px; text-align: center;
+}
+.xeet-lp .xeet-empty b { font-size: 13.5px; font-weight: 800; color: #F2F4F3; }
+.xeet-lp .xeet-empty span { font-size: 11.5px; color: #8A9199; max-width: 250px; }
+
+/* The other-markets card, stacked over the front face. The picker itself is
+   dressed by loupe.css (.xeet-pick); this only gives it the face's footprint
+   and lets a long list scroll inside the card instead of past it. */
+.xeet-lp .xeet-pickwrap {
+  position: absolute; inset: 0; z-index: 10;
+  overflow-y: auto; border-radius: 20px;
+}
+
+/* The slippage / wallet menus. Same object as the product's .xeet-lp-menu, which
+   loupe.css already dresses; this only anchors it to the row it belongs to. */
+.xeet-lp .xeet-menuwrap { position: relative; }
+
+@media (prefers-reduced-motion: reduce) {
+  .xeet-tag, .xeet-tag.xeet-sending, .xeet-lp .xeet-skel { animation: none; transition: none; }
+}
+
+/* ---------------------------------------------------------- one click */
+/* When the tap is going to trade on its own, the deck says so before the tap.
+   A dashed rule, because the panel already uses dashed for "this is not the
+   ordinary path" — and the wallet row is where somebody looks to find out
+   who is about to spend. */
+.xeet-lp.armed [data-el="segw"] {
+  border-top: 1px dashed rgba(242, 244, 243, .45) !important;
+}
+.xeet-lp.armed [data-el="segw"] .main::after {
+  content: "NO PROMPT";
+  margin-left: 8px;
+  font-size: 8px; font-weight: 800; letter-spacing: .12em;
+  color: #08090A; background: #F2F4F3;
+  border-radius: 4px; padding: 2px 4px; vertical-align: 1px;
+}

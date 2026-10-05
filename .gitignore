@@ -1,0 +1,17 @@
+# Built artefacts: the zips are produced by build.sh from the sources here.
+dist/
+
+# Promo media. The scripts that make these are kept; the output is not —
+# it is tens of megabytes that regenerate in a minute.
+promo/*.mp4
+promo/*.wav
+promo/av/
+promo/cards/
+promo/shots/
+promo/posts.json
+promo/first-frame-*.png
+
+# Local only
+.DS_Store
+node_modules/
+__pycache__/

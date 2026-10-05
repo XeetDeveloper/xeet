@@ -1,0 +1,666 @@
+/* Xeet — the site. One tagline, one scroller, one close. Void ground,
+   Manrope display, the real product as the only imagery. Body face is Inter
+   (the product's UI face); display is Manrope (the lockup's face). */
+
+:root {
+  --void: #08090A;
+  --surface: #101214;
+  --line: #23272B;
+  --paper: #F2F4F3;
+  --dim: #C9CFD3;
+  --muted: #8A9199;
+  --signal: #F2F4F3;
+  --core: #FFFFFF;
+  --danger: #F2F4F3;
+  --amber: #C9CFD3;
+  --flux: #9AA3AA;
+  --disp: 'Manrope', system-ui, sans-serif;
+  --body: 'Inter', system-ui, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; background: var(--void); }
+body {
+  color: var(--dim);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+::selection { background: rgba(242, 244, 243, .28); color: var(--paper); }
+
+/* ------------------------------------------------------------ atmosphere */
+/* Three soft color fields drifting over the void, plus a film of grain.
+   Fixed and negative-z: they live behind everything, above the canvas. */
+.aurora { position: fixed; inset: -14%; z-index: -1; pointer-events: none; }
+.aurora i { position: absolute; border-radius: 50%; will-change: transform; }
+.aurora i:nth-child(1) {
+  width: 64vw; height: 64vw; left: -14vw; top: -20vh;
+  background: radial-gradient(circle, rgba(242, 244, 243, .12), transparent 63%);
+  animation: drift1 26s ease-in-out infinite alternate;
+}
+.aurora i:nth-child(2) {
+  width: 56vw; height: 56vw; right: -16vw; top: 12vh;
+  background: radial-gradient(circle, rgba(154, 163, 170, .10), transparent 63%);
+  animation: drift2 33s ease-in-out infinite alternate;
+}
+.aurora i:nth-child(3) {
+  width: 60vw; height: 60vw; left: 18vw; bottom: -32vh;
+  background: radial-gradient(circle, rgba(242, 244, 243, .07), transparent 63%);
+  animation: drift3 39s ease-in-out infinite alternate;
+}
+.aurora i:nth-child(4) {
+  width: 44vw; height: 44vw; right: 4vw; bottom: -14vh;
+  background: radial-gradient(circle, rgba(242, 244, 243, .06), transparent 62%);
+  animation: drift4 29s ease-in-out infinite alternate;
+}
+@keyframes drift1 { to { transform: translate(16vw, 12vh) scale(1.22); } }
+@keyframes drift2 { to { transform: translate(-14vw, -14vh) scale(1.16); } }
+@keyframes drift3 { to { transform: translate(-15vw, -9vh) scale(1.24); } }
+@keyframes drift4 { to { transform: translate(-10vw, -16vh) scale(1.18); } }
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: .05;
+}
+
+/* ------------------------------------------------------------------ header */
+.top {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 28px;
+  background: linear-gradient(180deg, rgba(8, 9, 10, .85), rgba(8, 9, 10, 0));
+}
+.mark { display: inline-flex; align-items: center; text-decoration: none; }
+.mark img { height: 30px; width: auto; display: block; }
+.topnav { display: flex; align-items: center; gap: 16px; }
+
+/* ------------------------------------------------------------------ X link */
+.xlink {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--muted); text-decoration: none;
+  transition: color .15s ease;
+}
+.xlink svg { width: 16px; height: 16px; fill: currentColor; display: block; }
+.xlink:hover { color: var(--signal); }
+
+/* --------------------------------------------------------------------- CTA */
+.cta {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--disp); font-weight: 800; font-size: 15px;
+  letter-spacing: -0.01em; text-decoration: none;
+  color: #08090A; background: linear-gradient(180deg, var(--core), var(--signal));
+  padding: 13px 26px; border-radius: 14px;
+  box-shadow: 0 6px 26px -8px rgba(242, 244, 243, .55);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.cta:hover { transform: translateY(-1px); box-shadow: 0 10px 32px -8px rgba(242, 244, 243, .7); }
+.cta.small { padding: 9px 16px; font-size: 13px; border-radius: 11px; }
+.cta.big { padding: 17px 38px; font-size: 16px; border-radius: 16px; }
+
+/* -------------------------------------------------------------------- hero */
+.hero {
+  min-height: 94vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 96px 24px 24px; position: relative;
+}
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .22em;
+  color: var(--dim);
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 999px; padding: 9px 18px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  margin-bottom: 34px;
+}
+.hero h1 {
+  font-family: var(--disp); font-weight: 800;
+  font-size: clamp(48px, 8.6vw, 100px);
+  line-height: 1.02; letter-spacing: -0.035em; color: var(--paper);
+}
+.hero .sub {
+  margin-top: 26px;
+  font-size: clamp(17px, 1.9vw, 20px); color: var(--muted);
+}
+.hero-cta { margin-top: 48px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.fine {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--muted);
+}
+.cashtags {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  /* dead zone behind the headline: tags materialize as they travel outward */
+  -webkit-mask-image: radial-gradient(circle at 50% 46%,
+    transparent 0, transparent 130px, rgba(0, 0, 0, .7) 260px, #000 360px);
+          mask-image: radial-gradient(circle at 50% 46%,
+    transparent 0, transparent 130px, rgba(0, 0, 0, .7) 260px, #000 360px);
+}
+.cashtags span {
+  position: absolute; left: 50%; top: 44%;
+  display: block; opacity: 0;
+  will-change: transform, opacity;
+  /* size and flight are set inline per launch by site.js */
+}
+.cashtags span img {
+  width: 100%; height: 100%; display: block;
+  border-radius: 22%;
+  object-fit: cover;
+}
+/* The field holds its brightness across the flight instead of halving it at
+   76%. That taper was written for grey cashtags, where a fading ghost reads
+   as depth; a photograph at half opacity over black just reads as muddy, and
+   these are the tokens' own art — the one colour on the page. */
+@keyframes tagfly {
+  0% { transform: translate(-50%, -50%) translate(calc(var(--dx) * .14), calc(var(--dy) * .14)) scale(.72); opacity: 0; }
+  12% { opacity: var(--o); }
+  84% { opacity: var(--o); }
+  100% { transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(1.14); opacity: 0; }
+}
+.hero .eyebrow, .hero h1, .hero .sub, .hero .hero-cta { position: relative; z-index: 1; }
+
+.cue {
+  position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
+  color: var(--muted); font-size: 18px; opacity: .6;
+  animation: cue 2.4s ease-in-out infinite;
+}
+@keyframes cue { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 7px); } }
+
+/* ----------------------------------------------------------------- scrolly */
+.scrolly {
+  max-width: 1120px; margin: 0 auto; padding: 0 24px;
+  display: grid; grid-template-columns: 1fr 1.1fr; column-gap: 48px;
+}
+.step {
+  min-height: 96vh;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.step h2 {
+  font-family: var(--disp); font-weight: 800;
+  font-size: clamp(30px, 3.6vw, 46px); line-height: 1.08;
+  letter-spacing: -0.03em; color: var(--paper);
+  max-width: 11em;
+}
+.step p { margin-top: 16px; max-width: 26rem; color: var(--muted); font-size: 17px; }
+
+.stage-wrap { position: relative; }
+.scene-stage {
+  position: sticky; top: 0; height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+}
+/* absolute so its fixed 480x620 coordinate space never bloats the grid */
+.scene-fit { position: absolute; left: 50%; top: 50%; width: 480px; height: 620px;
+  transform: translate(-50%, -50%) scale(1.08); }
+
+/* every scene element is positioned and faded by the scroll engine directly */
+.sc { position: absolute; opacity: 0; pointer-events: none; }
+.stx { will-change: transform, opacity; }
+
+/* -- the post ---------------------------------------------------------- */
+/* X'S OWN ANATOMY, not a card with a tweet in it.
+   A post on X is a ROW in a column: no border, no radius, hairlines above and
+   below, a 40px avatar, one line of name/handle/time, the body at 15/20 in
+   the platform's system face, and an action bar under it. Getting those right
+   is what makes the scene read as "this is happening in your timeline"
+   instead of "here is an illustration of a tweet".
+
+   The rows above and below are deliberately abstract. They exist to say the
+   post sits in a column; filling them with invented posts by people who never
+   wrote them is the one thing this scene has been careful not to do. */
+.post {
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(430px, 92vw);
+  text-align: left;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+  /* X falls back to the system face, and on this machine that is the same
+     face X itself renders in. Manrope here would give away the mock. */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.post .tlrow {
+  display: grid; grid-template-columns: 40px 1fr; gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2F3336;   /* X's divider, exactly */
+}
+.post .tlrow:last-child { border-bottom: 0; }
+.post .pfp {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #14181C url(./img/pons-avatar.jpg) center/cover;
+}
+
+/* the rows that only have to say "column" */
+.post .ghost { opacity: .38; }
+.post .ghost .pfp { background: #16181C; }
+.post .gbars { display: flex; flex-direction: column; gap: 8px; padding-top: 5px; }
+.post .gbars i { display: block; height: 9px; border-radius: 5px; background: #23262B; }
+.post .gbars i:nth-child(1) { width: 72%; }
+.post .gbars i:nth-child(2) { width: 54%; }
+.post .gbars i:nth-child(3) { width: 63%; }
+
+/* the name line: one row, everything on the baseline, the handle and time in
+   X's secondary grey */
+.post .who {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 15px; line-height: 20px; white-space: nowrap;
+}
+.post .who b { font-weight: 700; color: #E7E9EA; }
+.post .who .handle,
+.post .who .mid,
+.post .who .when { color: #71767B; font-weight: 400; }
+.post .who .more { margin-left: auto; color: #71767B; letter-spacing: 1px; font-size: 13px; }
+
+.post p {
+  margin-top: 2px;
+  font-size: 15px; line-height: 20px; color: #E7E9EA;
+  white-space: pre-wrap;
+}
+
+/* THE CASHTAG, BEFORE WE TOUCH IT.
+   On X a cashtag is a link and links are #1D9BF0 — the one colour in X's own
+   interface. It stays that colour here for the same reason token logos keep
+   theirs: the page's chrome is monochrome, but things belonging to someone
+   else render as they really are. The beat the scene is built around is that
+   blue turning into our mark. */
+.post .ct {
+  font-style: normal; color: #1D9BF0; font-weight: 400;
+  border-radius: 4px; padding: 1px 2px; margin: -1px -2px;
+  /* The extension's resting mark, drawn in currentColor exactly as it is on
+     x.com — so the scene shows Xeet already present on the tag before the
+     cursor gets there, which is what step five of the story claims. */
+  border-bottom: 1px dotted currentColor;
+  transition: background .3s ease, box-shadow .3s ease, color .3s ease,
+              border-color .3s ease;
+}
+.post .ct.lit {
+  color: var(--paper);
+  background: rgba(242, 244, 243, .14);
+  border-bottom: 1px solid rgba(242, 244, 243, .9);
+  box-shadow: 0 0 0 1px rgba(242, 244, 243, .5), 0 0 18px -4px rgba(242, 244, 243, .5);
+}
+
+/* the action bar. Icons are drawn, not lifted: same shapes, our strokes. */
+.post .acts {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 12px; max-width: 425px;
+}
+.post .act {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 13px; line-height: 16px; color: #71767B;
+  font-variant-numeric: tabular-nums;
+}
+.post .act svg {
+  width: 18px; height: 18px; display: block;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.post .act.tail { color: #5B6066; }
+
+/* -- the cursor -------------------------------------------------------- */
+.cursor { width: 26px; height: 26px; z-index: 6; left: 0; top: 0;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .6)); will-change: left, top; }
+
+/* -- the panel --------------------------------------------------------- */
+/* anchored by its TOP so the deck opening only extends DOWNWARD, like the
+   real panel.
+   112px, not 84. At 84 the card sat high enough that the cursor's approach to
+   HOVER TO BUY was a short hop into a crowded bottom edge; the extra 28px give
+   the travel somewhere to happen and let the closed card breathe. The open
+   deck still clears the 620 fit — the panel is 348 tall closed and the tiles
+   reveal below it, which the fit lets overflow. */
+.panelmount {
+  left: 50%; top: 112px;
+  transform: translate(-50%, 0);
+  width: 360px; z-index: 2;
+  filter: drop-shadow(0 34px 70px rgba(0, 0, 0, .6));
+  will-change: transform, opacity, filter;
+}
+.panelmount .xeet-lp { position: relative; }
+
+/* -- tile balance (site fixture: qty+symbol on one line) ---------------- */
+.scene-stage .tile { gap: 4px !important; }
+.scene-stage .tile .cap { font-size: 15px !important; line-height: 1 !important; }
+.scene-stage .tile .qn { margin-top: 0 !important; font-size: 10px !important; letter-spacing: .03em; }
+.scene-stage .tile .qs { display: none !important; }
+
+/* -- the buy celebration ------------------------------------------------ */
+.buyflash {
+  left: 0; top: 0; width: 300px; height: 300px; z-index: 5;
+  background: radial-gradient(circle, rgba(242, 244, 243, .5), rgba(242, 244, 243, .12) 38%, transparent 62%);
+  will-change: transform, opacity;
+}
+.scene-stage .swapbtn.bought {
+  color: #FFFFFF !important;
+  border-color: rgba(242, 244, 243, .85) !important;
+  background: rgba(242, 244, 243, .1) !important;
+}
+
+/* -- the ghost feed lines ----------------------------------------------- */
+.feedghost {
+  left: 30px; top: 197px;
+  display: flex; flex-direction: column; gap: 44px;
+}
+.feedghost i { display: block; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, .06); }
+.feedghost i:nth-child(1) { width: 180px; }
+.feedghost i:nth-child(2) { width: 122px; }
+.feedghost i:nth-child(3) { width: 158px; }
+.feedghost i:nth-child(4) { width: 104px; }
+.feedghost i:nth-child(5) { width: 142px; }
+
+/* -- the fee ----------------------------------------------------------- */
+.feewrap {
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  text-align: center; z-index: 1; will-change: transform, opacity;
+}
+.feewrap b {
+  display: block; font-family: var(--disp); font-weight: 800;
+  font-size: 96px; line-height: 1; letter-spacing: -0.04em; color: var(--paper);
+}
+.feewrap span {
+  display: block; margin-top: 12px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+/* -- the flock: chain marks that orbit the fee, then become the rail ---- */
+.sq {
+  position: absolute; left: 0; top: 0;
+  width: 46px; height: 46px; border-radius: 13px;
+  opacity: 0; z-index: 3; will-change: transform, opacity;
+}
+.sq .fl {
+  position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(150deg, #171d23, #0d1014);
+  border: 1px solid rgba(255, 255, 255, .1);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .06);
+  display: grid; place-items: center;
+  animation: sqfloat 4.6s ease-in-out infinite alternate;
+}
+.sq:nth-child(2n) .fl { animation-duration: 5.4s; animation-delay: -1.3s; }
+.sq:nth-child(3n) .fl { animation-duration: 6.1s; animation-delay: -2.2s; }
+.sq.still .fl { animation: none; }
+@keyframes sqfloat { from { transform: translateY(-5px); } to { transform: translateY(5px); } }
+.sq .ca, .sq .tk { position: absolute; inset: 0; display: grid; place-items: center; border-radius: inherit; }
+.sq .ca svg { width: 26px; height: 26px; border-radius: 6px; }
+.sq .tk { opacity: 0; background-size: cover; background-position: center; }
+
+/* -- Happening now: the runner rail the flock lands in ------------------ */
+/* The card is the product's own board (popup.css .now-row): logo, ticker,
+   the three-bar stage meter and its word, cap and move on the right. */
+.hnow {
+  left: 232px; top: 128px; width: 236px; z-index: 2;
+  padding: 14px 12px 4px;
+  border-radius: 18px;
+  background: linear-gradient(170deg, #12151a, #0b0d10);
+  border: 1px solid rgba(255, 255, 255, .09);
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .05);
+  will-change: transform, opacity;
+}
+.hn-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 8px; }
+.hn-title { font-family: var(--disp); font-weight: 800; font-size: 13.5px; letter-spacing: -0.01em; color: var(--paper); }
+.hn-lanes { display: inline-flex; gap: 8px; font-family: var(--disp); font-size: 8.5px; font-weight: 800; letter-spacing: .1em; color: #5f6870; }
+.hn-lanes b { color: var(--signal); }
+.hn-rows { list-style: none; margin: 0; padding: 0; }
+.hn-row {
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; column-gap: 9px; align-items: center;
+  height: 50px; border-top: 1px solid rgba(255, 255, 255, .05);
+}
+.hn-row:first-child { border-top: 0; }
+.hn-face { width: 30px; height: 30px; border-radius: 10px; border: 1px dashed rgba(255, 255, 255, .14); transition: border-color .3s ease; }
+.hn-row.in .hn-face { border-color: transparent; }
+.hn-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; opacity: 0; will-change: opacity; }
+.hn-nums { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; opacity: 0; will-change: opacity; }
+.hn-sym { font-family: var(--disp); font-size: 12.5px; font-weight: 800; letter-spacing: -0.015em; color: var(--paper); line-height: 1; }
+.hn-stage { display: inline-flex; align-items: center; gap: 5px; font-family: var(--disp); font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; line-height: 1; }
+.hn-stage svg { width: 10px; height: 10px; display: block; }
+.hn-stage.warm { color: #C9CFD3; }
+.hn-stage.running { color: var(--signal); }
+.hn-stage.sending { color: #FFFFFF; }
+.hn-cap { font-family: var(--disp); font-size: 12.5px; font-weight: 800; letter-spacing: -0.015em; color: var(--paper); line-height: 1; font-variant-numeric: tabular-nums; }
+.hn-chg { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .06em; color: var(--signal); line-height: 1; }
+
+.finale {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; flex-direction: column;
+  transform: translateY(102%);
+  pointer-events: none;
+  will-change: transform;
+}
+.close-card {
+  position: relative; margin: auto; width: min(1120px, calc(100% - 40px));
+  min-height: min(560px, 64vh);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 96px 48px; text-align: center;
+  border-radius: 36px;
+  background: linear-gradient(165deg, #FFFFFF, #F2F4F3 55%, #B9C0C6);
+  box-shadow:
+    0 30px 120px -16px rgba(242, 244, 243, .5),
+    inset 0 1px 0 rgba(255, 255, 255, .5);
+  will-change: transform;
+}
+.close-card h2 {
+  font-family: var(--disp); font-weight: 800;
+  font-size: clamp(44px, 7vw, 88px); line-height: 1.04;
+  letter-spacing: -0.035em; color: #08090A;
+}
+.finale-foot { flex: 0 0 auto; }
+.close-card .cta.dark {
+  margin-top: 38px;
+  color: var(--core); background: #08090A;
+  padding: 17px 38px; font-size: 16px; border-radius: 16px;
+  box-shadow: 0 14px 34px -12px rgba(11, 13, 8, .65);
+}
+.close-card .cta.dark:hover { transform: translateY(-1px); box-shadow: 0 18px 40px -12px rgba(11, 13, 8, .75); }
+.close-card .fine.dark { display: block; margin-top: 18px; color: rgba(11, 13, 8, .8); }
+
+
+/* -------------------------------------------------------------------- xlink */
+/* The X mark beside the wordmark, in the header and again in the footer. It is
+   a <span> until the handle is known and an <a> after — same box either way,
+   so nothing shifts when it becomes live. */
+.xlink {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; margin-left: 2px;
+  color: var(--muted); border-radius: 9px; text-decoration: none;
+  transition: color .15s ease, background .15s ease;
+}
+a.xlink:hover { color: var(--core); background: rgba(255, 255, 255, .07); }
+/* Both homes are flex rows with their own spacing, so the mark carries no
+   margin of its own — it sits in the gap the row already keeps. */
+.topnav .xlink { margin-left: 0; margin-right: -4px; }
+.xlink.foot { margin-left: 0; margin-right: -4px; }
+/* The hero's copy stands alone under the address rather than beside a button,
+   so it carries the weight the small ones borrow from their neighbours. The
+   modifier is "big" and not "hero": the page already has a .hero section, and
+   a second class of that name hands the icon a half-screen height. */
+.xlink.big { width: 46px; height: 46px; margin: 4px 0 0; border-radius: 15px; }
+.xlink.big svg { width: 24px; height: 24px; }
+a.xlink.big:hover { color: var(--core); background: rgba(255, 255, 255, .08); }
+
+/* ------------------------------------------------------------------ CA pill */
+/* Sits under the install button in the hero's own column, so it reads as a
+   footnote to the CTA rather than a second call to action. */
+.ca-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .12em;
+  color: var(--muted); background: rgba(255, 255, 255, .04);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 9px 16px; cursor: default;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+  max-width: min(92vw, 460px);
+}
+.ca-pill .ca-label { color: var(--dim); }
+.ca-pill .ca-value {
+  color: var(--core); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  -webkit-user-select: all; user-select: all;  /* one tap selects the whole address */
+}
+.ca-pill .ca-icon { flex: none; color: var(--dim); transition: color .15s ease; }
+.ca-pill[data-empty="1"] .ca-icon { display: none; }
+.ca-pill[data-empty="0"]:hover .ca-icon { color: var(--core); }
+.ca-pill.copied, .ca-pill.copied .ca-icon { color: var(--core); border-color: rgba(242, 244, 243, .45); }
+.ca-pill.failed .ca-value { color: var(--muted); }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.ca-pill[data-empty="1"] .ca-value { color: var(--muted); text-transform: uppercase; }
+.ca-pill[data-empty="0"] { cursor: pointer; }
+.ca-pill[data-empty="0"]:hover { border-color: rgba(242, 244, 243, .34); background: rgba(255, 255, 255, .07); }
+.ca-pill.copied .ca-value { color: var(--core); }
+
+/* ------------------------------------------------------------------- strip */
+.strip {
+  margin: 0 auto; padding: 26px 24px; text-align: center;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  font-family: var(--mono); font-size: 11px; letter-spacing: .18em;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ footer */
+.pagefoot {
+  max-width: 980px; margin: 0 auto; padding: 24px 24px 30px;
+  display: flex; align-items: center; gap: 18px;
+}
+.flogo { height: 28px; width: auto; display: block; }
+.fsep { flex: 1; }
+.pagefoot a {
+  color: var(--muted); text-decoration: none; font-size: 13.5px; margin-left: 18px;
+  border-bottom: 1px solid transparent; transition: color .15s ease, border-color .15s ease;
+}
+.pagefoot a:hover { color: var(--signal); border-color: rgba(242, 244, 243, .4); }
+.pagefoot .xlink.foot { border-bottom: none; }
+.pagefoot .xlink.foot svg { width: 14px; height: 14px; }
+
+/* -------------------------------------------------------------- responsive */
+@media (max-width: 900px) {
+  .scrolly { grid-template-columns: 1fr; column-gap: 0; }
+  /* steps and stage share one cell so the sticky stage can ride the whole
+     scroll; the GRAPHIC pins to the top half, and each step's TEXT pins in
+     the lower zone and crossfades on handoff (the scrub drives opacity) */
+  .steps, .stage-wrap { grid-area: 1 / 1; }
+  .stage-wrap .scene-stage { height: 56vh; z-index: 5; }
+  /* The panel IS the demo; at .6 its rows were 6px tall on a phone — present
+     but unreadable, which is the same as absent. The stage gains the height
+     the larger scene needs, and the copy below starts lower to match. */
+  .scene-fit { transform: translate(-50%, -50%) scale(.88); }
+  .steps { padding-top: 30vh; }
+  /* 145vh: tall enough that the sticky text stays PINNED until the fade
+     curve (dead at |dv| .46) has fully killed it — unpinning early is what
+     let outgoing copy ride up into the imagery */
+  .step { min-height: 145vh; display: block; text-align: center; }
+  .step.spacer { min-height: 100vh; }
+  .step .stx { position: sticky; top: 63vh; padding: 0 8px; }
+  .close-card { padding: 64px 24px; min-height: 54vh; }
+  .step h2 { max-width: none; }
+  .step p { position: relative; z-index: 1; margin-left: auto; margin-right: auto; }
+  .feewrap b { font-size: 68px; }
+  .mark img { height: 26px; }
+  /* A narrower column puts the headline where the sprites fly, so the hole
+     in the mask grows with it. */
+  .cashtags {
+    -webkit-mask-image: radial-gradient(circle at 50% 46%,
+      transparent 0, transparent 120px, rgba(0, 0, 0, .7) 230px, #000 330px);
+            mask-image: radial-gradient(circle at 50% 46%,
+      transparent 0, transparent 120px, rgba(0, 0, 0, .7) 230px, #000 330px);
+  }
+}
+@media (max-width: 430px) {
+  .scene-fit { transform: translate(-50%, -50%) scale(.70); }
+  .step .stx { top: 64vh; }
+  /* Finger-sized, without changing how big the mark looks. */
+  .xlink { width: 40px; height: 40px; }
+  .xlink.big { width: 52px; height: 52px; }
+  .pagefoot a { padding: 7px 0; }
+  .pagefoot { gap: 12px; }
+  /* Phone browsers grow and shrink the viewport as the address bar hides;
+     with vh the hero jumps on the first scroll, so prefer the dynamic unit
+     where it exists. */
+  .hero { min-height: 92svh; padding-top: 88px; }
+  .post { width: 400px; }
+  .cashtags {
+    -webkit-mask-image: radial-gradient(circle at 50% 46%,
+      transparent 0, transparent 90px, rgba(0, 0, 0, .7) 180px, #000 260px);
+            mask-image: radial-gradient(circle at 50% 46%,
+      transparent 0, transparent 90px, rgba(0, 0, 0, .7) 180px, #000 260px);
+  }
+}
+
+/* --------------------------------------------------------- reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .cta, .cta:hover { transform: none; }
+  .cashtags {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  /* dead zone behind the headline: tags materialize as they travel outward */
+  -webkit-mask-image: radial-gradient(circle at 50% 46%,
+    transparent 0, transparent 130px, rgba(0, 0, 0, .7) 260px, #000 360px);
+          mask-image: radial-gradient(circle at 50% 46%,
+    transparent 0, transparent 130px, rgba(0, 0, 0, .7) 260px, #000 360px);
+}
+.cashtags span {
+  position: absolute; left: 50%; top: 44%;
+  display: block; opacity: 0;
+  will-change: transform, opacity;
+  /* size and flight are set inline per launch by site.js */
+}
+.cashtags span img {
+  width: 100%; height: 100%; display: block;
+  border-radius: 22%;
+  object-fit: cover;
+}
+/* The field holds its brightness across the flight instead of halving it at
+   76%. That taper was written for grey cashtags, where a fading ghost reads
+   as depth; a photograph at half opacity over black just reads as muddy, and
+   these are the tokens' own art — the one colour on the page. */
+@keyframes tagfly {
+  0% { transform: translate(-50%, -50%) translate(calc(var(--dx) * .14), calc(var(--dy) * .14)) scale(.72); opacity: 0; }
+  12% { opacity: var(--o); }
+  84% { opacity: var(--o); }
+  100% { transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(1.14); opacity: 0; }
+}
+.hero .eyebrow, .hero h1, .hero .sub, .hero .hero-cta { position: relative; z-index: 1; }
+
+.cue { animation: none; }
+  .post .ct { transition: none; }
+  .aurora i { animation: none; }
+  .sq .fl { animation: none; }
+}
+
+/* ============================================================ MONOCHROME ===
+   The site follows the panel: one grey ladder, no hue. What was carried by
+   colour alone is carried by brightness and shape instead, and the borrowed
+   art — chain marks, token logos, an avatar — is desaturated rather than
+   recoloured, so the marks stay recognisable while the page stays one
+   palette.
+   ------------------------------------------------------------------------ */
+
+/* Four coloured fields drifting over the void become four white ones, at
+   roughly half the alpha. White reads far hotter than lime at the same
+   value: left at .12 the top-left field washed out the headline sitting in
+   front of it. */
+.aurora i:nth-child(1) { background: radial-gradient(circle, rgba(242, 244, 243, .06), transparent 63%); }
+.aurora i:nth-child(2) { background: radial-gradient(circle, rgba(242, 244, 243, .045), transparent 63%); }
+.aurora i:nth-child(3) { background: radial-gradient(circle, rgba(242, 244, 243, .035), transparent 63%); }
+.aurora i:nth-child(4) { background: radial-gradient(circle, rgba(242, 244, 243, .03), transparent 62%); }
+
+
+/* The runner rail's stage ladder, matching the panel's exactly. */
+.hn-stage.warm { color: #8A9199; }
+.hn-stage.running { color: #C9CFD3; }
+.hn-stage.sending { color: #FFFFFF; }
+.hn-chg { color: #FFFFFF; }
+
+/* Borrowed art keeps its own colour — token logos and chain marks are the
+   only colour on the page, and the reason the runner rail is readable at a
+   glance. See the same note in loupe.css. */
+
+/* The close card is the one inverted surface on the page: white ground,
+   black type, and the only place the ladder runs the other way. */
+.close-card { background: linear-gradient(165deg, #FFFFFF, #F2F4F3 55%, #C4CACE); }
+.close-card h2 { color: #08090A; }
+.close-card .fine.dark { color: rgba(8, 9, 10, .72); }

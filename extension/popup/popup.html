@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../assets/fonts/fonts.css">
+<link rel="stylesheet" href="popup.css">
+<title>Xeet</title>
+</head>
+<body>
+
+<header class="top">
+  <img class="lockup" src="../icons/lockup.svg" alt="Xeet">
+  <div class="topright">
+    <span class="pill" id="valuepill" hidden></span>
+    <button class="power" id="power" type="button" role="switch" aria-checked="true" title="Xeet on this browser">
+      <span class="knob"></span>
+    </button>
+  </div>
+</header>
+
+<!-- Shown only when the background is running a different build than these
+     files. Above everything, because nothing below it can be trusted. -->
+<div class="stale" id="stale" hidden>
+  <b>Xeet needs reloading</b>
+  <span id="stale-why"></span>
+  <button class="chip go" id="stale-go" type="button">Reload Xeet</button>
+</div>
+
+<main>
+  <!-- ============================================================== NOW -->
+  <section class="pane on" data-pane="now">
+    <div class="pane-head">
+      <h1>Happening now</h1>
+      <span class="lanes" id="lanes">
+        <button class="lane on" data-w="m5" type="button">5M</button>
+        <button class="lane" data-w="h1" type="button">1H</button>
+        <button class="lane" data-w="h6" type="button">6H</button>
+        <button class="lane" data-w="h24" type="button">24H</button>
+      </span>
+      <button class="iconbtn" id="reload" type="button" title="Read the tape again" aria-label="Refresh">
+        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4.5h-4.5"/></svg>
+      </button>
+    </div>
+
+    <!-- A ticker or a contract. The board shows what is already moving; this
+         is for the coin somebody just DM'd you, which by definition is not on
+         any board yet. -->
+    <form class="find" id="find" autocomplete="off">
+      <input id="findq" type="text" spellcheck="false"
+             placeholder="$TICKER or contract address" aria-label="Find a token">
+      <button type="submit" aria-label="Find">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+      </button>
+    </form>
+    <ol class="rows" id="findrows"></ol>
+    <div class="note" id="find-note" hidden></div>
+
+    <div class="hintrow">
+      <span><svg class="cur" viewBox="0 0 24 24"><path d="M5.5 3.2 18.6 14.1l-6 .8 3.3 6.3-2.7 1.4-3.3-6.4-4.4 4.2z"/></svg>TAP TO SWAP</span>
+      <i></i>
+      <span><b>⌘</b> OPEN ON X</span>
+    </div>
+
+    <ol class="rows" id="rows"></ol>
+    <div class="note" id="now-note">Reading the tape…</div>
+  </section>
+
+  <!-- ========================================================= HOLDINGS -->
+  <section class="pane" data-pane="holdings">
+    <div class="pane-head"><h1>Holdings</h1>
+      <button class="iconbtn" id="reload-hold" type="button" title="Read the wallet again" aria-label="Refresh">
+        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4.5h-4.5"/></svg>
+      </button>
+    </div>
+    <div class="total" id="hold-total" hidden><span class="k">Wallet value</span><b id="hold-sum">—</b></div>
+    <ol class="rows" id="holdrows"></ol>
+    <div class="note" id="hold-note"></div>
+  </section>
+
+  <!-- ========================================================== HISTORY -->
+  <section class="pane" data-pane="history">
+    <div class="pane-head"><h1>History</h1></div>
+    <ol class="rows" id="trades"></ol>
+    <div class="note" id="trades-note"></div>
+  </section>
+
+  <!-- ========================================================= SETTINGS -->
+  <section class="pane" data-pane="settings">
+    <div class="pane-head"><h1>Settings</h1></div>
+
+    <div class="group">
+      <div class="grouplabel">Wallet</div>
+      <div class="wallets">
+        <!-- Robinhood Chain first, and named: it is the chain this extension is
+             built around, and "AN EVM WALLET" told nobody which one to bring.
+             The same wallet still signs on every other EVM chain. -->
+        <button class="wcard" id="wcard-evm" type="button">
+          <span class="wchain" data-chain="robinhood"></span>
+          <b id="wname-evm">Connect</b>
+          <span class="prompt" id="waddr-evm">A ROBINHOOD CHAIN WALLET</span>
+        </button>
+        <button class="wcard" id="wcard-svm" type="button">
+          <span class="wchain" data-chain="solana"></span>
+          <b id="wname-svm">Connect</b>
+          <span class="prompt" id="waddr-svm">A SOLANA WALLET</span>
+        </button>
+      </div>
+      <p class="hint">Connecting happens in the panel on X — the wallet's own window is the only thing that authorises anything. A wallet with several accounts asks which one.</p>
+      <div class="acctbtns" id="forgetrow" hidden>
+        <button class="chip" id="forget-all" type="button">Forget every wallet</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="grouplabel">Trade</div>
+      <div class="card">
+        <div class="setting col">
+          <div><b>Default slippage</b><span>Max price move before a swap reverts</span></div>
+          <div class="chips" id="slip"></div>
+        </div>
+        <div class="setting col">
+          <div><b>Quick buy</b><span>Tap amounts on the buy face, in dollars</span></div>
+          <div class="inputs" id="buys"></div>
+        </div>
+        <div class="setting col">
+          <div><b>Quick sell</b><span>Tap amounts on the sell face, as a share of the position</span></div>
+          <div class="inputs" id="sells"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="grouplabel">One-click trading</div>
+      <div class="card">
+        <div class="setting">
+          <div><b>Tap an amount, no wallet prompt</b><span>Off by default. Uses separate trading accounts — one on Robinhood Chain, one on Solana — and your own wallet never signs for either. Read the note under this section before funding them.</span></div>
+          <button class="power" id="turbo-on" type="button" role="switch" aria-checked="false"><span class="knob"></span></button>
+        </div>
+        <div id="turbo-body" hidden>
+          <div class="setting col">
+            <div><b>Robinhood Chain account</b><span id="turbo-warn">Buys and sells both go from this account; sending it home puts the ETH back in your wallet.</span></div>
+            <div class="acct" id="turbo-acct" hidden>
+              <span class="k">Address</span><b id="turbo-addr">—</b>
+              <span class="k">Balance</span><b id="turbo-bal">—</b>
+            </div>
+            <ol class="rows tiny" id="turbo-holds"></ol>
+            <div class="acctbtns">
+              <button class="chip" id="turbo-make" type="button">Create the account</button>
+              <button class="chip" id="turbo-bring" type="button">Use a key I have</button>
+              <button class="chip" id="turbo-copy" type="button" hidden>Copy address</button>
+              <button class="chip" id="turbo-refresh" type="button" hidden>Check balance</button>
+              <button class="chip" id="turbo-home" type="button" hidden>Send it home</button>
+              <button class="chip" id="turbo-wipe" type="button" hidden>Delete it</button>
+            </div>
+            <p class="hint" id="turbo-home-note" hidden></p>
+
+            <!-- Importing. Hidden until asked for, because the safe path is the
+                 one above and a field like this should never be the first thing
+                 anybody sees. -->
+            <div class="bring" id="turbo-bring-box" hidden>
+              <div class="warn">
+                <b>Paste a key for a burner, not your main wallet.</b>
+                <span>On Robinhood Chain the browser cannot hold a key it is unable to
+                read, so this one is stored as bytes and Xeet can read it. Give it an
+                account you fund on purpose. Never a seed phrase — this refuses one.</span>
+              </div>
+              <textarea id="turbo-secret" rows="2" spellcheck="false" autocomplete="off"
+                        placeholder="Private key — 32 bytes of hex, with or without 0x"
+                        aria-label="Private key"></textarea>
+              <div class="acctbtns">
+                <button class="chip go" id="turbo-bring-do" type="button">Import it</button>
+                <button class="chip" id="turbo-bring-cancel" type="button">Cancel</button>
+              </div>
+              <p class="hint" id="turbo-bring-note"></p>
+            </div>
+          </div>
+          <div class="setting col">
+            <div><b>Cap per trade</b><span>The largest single tap that can go through without a prompt</span></div>
+            <div class="chips" id="turbo-per"></div>
+          </div>
+          <div class="setting col">
+            <div><b>Cap per day</b><span id="turbo-spent">Resets at midnight</span></div>
+            <div class="chips" id="turbo-day"></div>
+          </div>
+        </div>
+      </div>
+      <p class="hint" id="turbo-note"></p>
+
+      <!-- Solana's own account. A separate card rather than a second address
+           on the one above, because it is a different key with a different
+           safety story, and the two are never interchangeable. -->
+      <div class="card" id="turbo-svm-card" hidden>
+        <div class="setting col">
+          <div><b>Solana account</b><span id="svm-warn">Trades SPL tokens through Jupiter. This key is generated inside the browser and cannot be read back out — not by a page, not by Xeet.</span></div>
+          <div class="acct" id="svm-acct" hidden>
+            <span class="k">Address</span><b id="svm-addr">—</b>
+            <span class="k">Balance</span><b id="svm-bal">—</b>
+          </div>
+          <ol class="rows tiny" id="svm-holds"></ol>
+          <div class="acctbtns">
+            <button class="chip" id="svm-make" type="button">Create the account</button>
+            <button class="chip" id="svm-bring" type="button">Use a key I have</button>
+            <button class="chip" id="svm-copy" type="button" hidden>Copy address</button>
+            <button class="chip" id="svm-refresh" type="button" hidden>Check balance</button>
+            <button class="chip" id="svm-home" type="button" hidden>Send it home</button>
+            <button class="chip" id="svm-wipe" type="button" hidden>Delete it</button>
+          </div>
+          <p class="hint" id="svm-home-note" hidden></p>
+
+          <div class="bring" id="svm-bring-box" hidden>
+            <div class="warn">
+              <b>Paste a key for a burner, not your main wallet.</b>
+              <span>The bytes are imported once and stored as a key that cannot be
+              exported, so Xeet signs with it and cannot read it — but anything you
+              put on this account can still be traded by one tap. Never a seed
+              phrase; this refuses one.</span>
+            </div>
+            <textarea id="svm-secret" rows="2" spellcheck="false" autocomplete="off"
+                      placeholder="Private key — base58 from your wallet, or a [1,2,…] array"
+                      aria-label="Solana private key"></textarea>
+            <div class="acctbtns">
+              <button class="chip go" id="svm-bring-do" type="button">Import it</button>
+              <button class="chip" id="svm-bring-cancel" type="button">Cancel</button>
+            </div>
+            <p class="hint" id="svm-bring-note"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="grouplabel">Display</div>
+      <div class="card">
+        <div class="setting col">
+          <div><b>Panel opens after</b><span>How long you have to rest on a tag</span></div>
+          <div class="chips" id="delay"></div>
+        </div>
+        <label class="row-toggle"><span><b>Cashtags</b><i>Mark $TICKER in the timeline</i></span><input type="checkbox" id="scanCashtags"></label>
+        <label class="row-toggle"><span><b>Contract addresses</b><i>Mark a pasted CA in the timeline</i></span><input type="checkbox" id="scanAddresses"></label>
+      </div>
+      <p class="hint fee" id="feeline"></p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar" id="tabs">
+  <button class="tab on" data-tab="now" type="button">
+    <svg viewBox="0 0 24 24"><path d="M3 17.5 9 11l4 4 8-8.5"/><path d="M15 6.5h6v6"/></svg><span>Now</span>
+  </button>
+  <button class="tab" data-tab="holdings" type="button">
+    <svg viewBox="0 0 24 24"><circle cx="5" cy="7" r="1.6"/><circle cx="5" cy="12.5" r="1.6"/><circle cx="5" cy="18" r="1.6"/><path d="M10 7h11M10 12.5h11M10 18h11"/></svg><span>Holdings</span>
+  </button>
+  <button class="tab" data-tab="history" type="button">
+    <svg viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5V10H9"/><path d="M12 8v4.4l3 1.8"/></svg><span>History</span>
+  </button>
+  <button class="tab" data-tab="settings" type="button">
+    <svg viewBox="0 0 24 24"><path d="M4 7h9M17.5 7H20M4 12h3M11.5 12H20M4 17h9M17.5 17H20"/><circle cx="15.2" cy="7" r="2.3"/><circle cx="9.2" cy="12" r="2.3"/><circle cx="15.2" cy="17" r="2.3"/></svg><span>Settings</span>
+  </button>
+</nav>
+
+<script src="../src/chains.js"></script>
+<script src="../src/config.js"></script>
+<script src="../src/format.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

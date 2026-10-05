@@ -1,0 +1,453 @@
+/* Xeet — the popup.
+ *
+ * The same object as the panel, at a different size: void ground, one grey
+ * ladder, Manrope for anything that carries weight and a mono face for
+ * anything a person might compare against another number.
+ *
+ * Four panes behind a bottom bar, because that is where a thumb-sized app
+ * puts its navigation and because the panes are peers — none of them is a
+ * detail view of another.
+ *
+ * Stage is a three-bar meter and a word, never a colour alone: a colour-only
+ * signal is a signal a fifth of people cannot read. */
+
+:root {
+  --void: #08090A;
+  --surface: #101214;
+  --line: #23272B;
+  --paper: #F2F4F3;
+  --dim: #C9CFD3;
+  --muted: #8A9199;
+  --faint: #6B7680;
+  --mint: #F2F4F3;
+  --mint-deep: #C9CFD3;
+  --core: #FFFFFF;
+  --danger: #F2F4F3;
+  --flux: #9AA3AA;
+  --disp: 'Manrope', system-ui, sans-serif;
+  --body: 'Inter', system-ui, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* The hidden attribute only gets display:none from the browser's own stylesheet,
+   so ANY author rule that sets display beats it. Three elements here are laid
+   out as grids and toggled with .hidden — and were therefore permanently
+   visible, including a "Xeet needs reloading" banner that showed on a perfectly
+   healthy install with no explanation under it, because the explanation is only
+   written when the banner is actually meant to appear. One rule, not three
+   patches: the next element added this way should not be able to repeat it. */
+[hidden] { display: none !important; }
+body {
+  width: 380px; height: 600px;
+  display: flex; flex-direction: column;
+  background:
+    radial-gradient(70% 42% at 18% -6%, rgba(242, 244, 243, .10), transparent 70%),
+    radial-gradient(60% 40% at 96% 8%, rgba(154, 163, 170, .07), transparent 70%),
+    var(--void);
+  color: var(--dim);
+  font-family: var(--body);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+::selection { background: rgba(242, 244, 243, .28); color: var(--paper); }
+
+/* ------------------------------------------------------------------ head */
+.top {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px 9px;
+}
+.lockup { height: 21px; width: auto; display: block; }
+.topright { display: flex; align-items: center; gap: 9px; }
+
+/* The wallet's value, when there is a wallet. Not a badge for its own sake:
+   it is the one number worth carrying on every pane. */
+.pill {
+  font-family: var(--disp); font-size: 11.5px; font-weight: 800;
+  letter-spacing: -.01em; color: var(--paper);
+  border: 1px solid rgba(245, 247, 246, .18); border-radius: 999px;
+  padding: 5px 11px;
+}
+
+.power {
+  appearance: none; width: 40px; height: 23px; border-radius: 999px;
+  border: 1px solid rgba(245, 247, 246, .16); background: rgba(255, 255, 255, .05);
+  position: relative; cursor: pointer; padding: 0;
+  transition: background .18s ease, border-color .18s ease;
+}
+.power .knob {
+  position: absolute; top: 2px; left: 2px; width: 17px; height: 17px;
+  border-radius: 50%; background: #6d757d;
+  transition: transform .18s cubic-bezier(.2, .9, .3, 1), background .18s ease;
+}
+.power[aria-checked="true"] { background: rgba(242, 244, 243, .18); border-color: var(--mint-deep); }
+.power[aria-checked="true"] .knob { transform: translateX(17px); background: var(--mint); }
+
+/* ----------------------------------------------------------------- panes */
+main { flex: 1; overflow-y: auto; overflow-x: hidden; }
+main::-webkit-scrollbar { width: 8px; }
+main::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .09); border-radius: 8px; }
+
+.pane { display: none; padding: 4px 14px 20px; }
+.pane.on { display: block; }
+
+.pane-head { display: flex; align-items: center; gap: 10px; padding: 4px 2px 10px; }
+.pane-head h1 {
+  font-family: var(--disp); font-weight: 800; font-size: 19px;
+  letter-spacing: -.025em; color: var(--paper);
+}
+.pane-head .lanes { margin-left: auto; }
+
+.iconbtn {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  color: var(--faint); padding: 4px; margin-left: auto; border-radius: 7px;
+  display: grid; place-items: center;
+  transition: color .15s ease, transform .3s ease;
+}
+.pane-head .lanes + .iconbtn { margin-left: 2px; }
+.iconbtn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.iconbtn:hover { color: var(--paper); }
+.iconbtn.spin svg { animation: turn .7s cubic-bezier(.4, 0, .2, 1); }
+@keyframes turn { to { transform: rotate(360deg); } }
+
+.lanes { display: inline-flex; gap: 2px; }
+.lane {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  font-family: var(--disp); font-size: 8.5px; font-weight: 800; letter-spacing: .1em;
+  color: #5f6870; padding: 3px 5px; border-radius: 6px;
+  transition: color .15s ease, background .15s ease;
+}
+.lane:hover { color: var(--paper); }
+.lane.on { color: var(--paper); background: rgba(242, 244, 243, .12); }
+
+/* the two gestures the board answers to, said once at the top */
+.hintrow {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 6px; padding: 9px 12px;
+  border: 1px solid rgba(245, 247, 246, .1); border-radius: 12px;
+  font-family: var(--disp); font-size: 8.5px; font-weight: 800; letter-spacing: .13em;
+  color: var(--faint);
+}
+.hintrow span { display: inline-flex; align-items: center; gap: 6px; flex: 1; justify-content: center; }
+.hintrow i { width: 1px; height: 14px; background: rgba(245, 247, 246, .12); }
+.hintrow b { font-size: 11px; font-weight: 700; }
+.hintrow .cur { width: 11px; height: 11px; fill: currentColor; }
+
+/* ----------------------------------------------------------- list rows */
+.rows { list-style: none; }
+.row {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) auto;
+  column-gap: 10px; align-items: center;
+  min-height: 54px; border-top: 1px solid rgba(255, 255, 255, .05);
+  cursor: pointer; padding: 6px 4px; margin: 0 -4px; border-radius: 9px;
+  transition: background .14s ease;
+}
+.row:first-child { border-top: 0; }
+.row:hover { background: rgba(255, 255, 255, .04); }
+.row.flat { cursor: default; }
+.row.flat:hover { background: none; }
+
+.face {
+  width: 32px; height: 32px; border-radius: 10px; overflow: hidden;
+  background: #14181C center/cover no-repeat;
+  border: 1px solid rgba(255, 255, 255, .1);
+  display: grid; place-items: center;
+  font-family: var(--disp); font-weight: 800; font-size: 12px; color: var(--muted);
+}
+.face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.copy { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.symline { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sym {
+  font-family: var(--disp); font-size: 12.5px; font-weight: 800; letter-spacing: -.015em;
+  color: var(--paper); line-height: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.badge {
+  font-family: var(--disp); font-size: 7.5px; font-weight: 800; letter-spacing: .1em;
+  color: var(--void); background: var(--paper);
+  border-radius: 4px; padding: 2px 4px; line-height: 1; flex: 0 0 auto;
+}
+.sub {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 9.5px; color: var(--muted); line-height: 1;
+  overflow: hidden; white-space: nowrap;
+}
+.stage {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--disp); font-size: 8px; font-weight: 800; letter-spacing: .12em;
+  text-transform: uppercase; line-height: 1; color: var(--muted); flex: 0 0 auto;
+}
+.stage svg { width: 10px; height: 10px; display: block; }
+.age { font-family: var(--mono); font-size: 9px; color: var(--faint); }
+.chainname { font-family: var(--mono); font-size: 9px; color: var(--faint); }
+
+.nums { display: flex; align-items: center; gap: 9px; }
+.spark { width: 46px; height: 22px; display: block; flex: 0 0 auto; }
+.spark path { fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.numcol { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.cap {
+  font-family: var(--disp); font-size: 12.5px; font-weight: 800; letter-spacing: -.015em;
+  color: var(--paper); line-height: 1; font-variant-numeric: tabular-nums;
+}
+.chg { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .06em; line-height: 1; }
+
+.note { padding: 14px 4px; font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.5; }
+
+/* skeleton rows so a pane has a shape before the answer lands */
+.skel { min-height: 54px; border-top: 1px solid rgba(255, 255, 255, .05); display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.skel i {
+  display: block; border-radius: 7px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .1), rgba(255, 255, 255, .05));
+  background-size: 200% 100%; animation: sk 1.15s linear infinite;
+}
+.skel i:nth-child(1) { width: 32px; height: 32px; border-radius: 10px; }
+.skel i:nth-child(2) { width: 84px; height: 11px; }
+.skel i:nth-child(3) { width: 52px; height: 11px; margin-left: auto; }
+@keyframes sk { to { background-position: -200% 0; } }
+
+/* ------------------------------------------------------------- holdings */
+.total {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 13px 14px; margin-bottom: 8px; border-radius: 13px;
+  background: rgba(255, 255, 255, .03); border: 1px solid rgba(245, 247, 246, .1);
+}
+.total .k { font-family: var(--mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.total b { font-family: var(--disp); font-size: 22px; font-weight: 800; letter-spacing: -.03em; color: var(--paper); }
+.amt { font-family: var(--mono); font-size: 9.5px; color: var(--muted); }
+
+/* ------------------------------------------------------------- settings */
+.group { margin-bottom: 18px; }
+.grouplabel {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted); margin: 0 2px 8px;
+}
+.card {
+  border-radius: 14px; overflow: hidden;
+  background: rgba(255, 255, 255, .025); border: 1px solid rgba(245, 247, 246, .09);
+}
+.setting {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 13px 14px; border-bottom: 1px solid rgba(245, 247, 246, .07);
+}
+.setting.col { flex-direction: column; align-items: stretch; gap: 10px; }
+.setting:last-child { border-bottom: 0; }
+.setting b { display: block; font-size: 13px; font-weight: 700; color: var(--paper); }
+.setting span { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+.wallets { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.wcard {
+  appearance: none; cursor: pointer; text-align: left; font: inherit;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 13px; border-radius: 14px;
+  background: rgba(255, 255, 255, .03); border: 1px solid rgba(245, 247, 246, .1);
+  transition: border-color .15s ease, background .15s ease;
+}
+.wcard:hover { border-color: var(--paper); background: rgba(255, 255, 255, .05); }
+.wcard .wchain { display: block; width: 22px; height: 22px; margin-bottom: 7px; }
+.wcard .wchain svg { width: 100%; height: 100%; display: block; }
+/* A wallet's own icon, when one is connected. Rounded because most of them
+   ship a square mark that reads as a tile against this card otherwise. */
+.wcard .wchain img { width: 100%; height: 100%; display: block; object-fit: contain; border-radius: 5px; }
+.wcard b { font-family: var(--disp); font-size: 14px; font-weight: 800; color: var(--paper); letter-spacing: -.02em; }
+/* The label under the name is either a prompt or an address. A prompt shouts;
+   an address is case-sensitive data and must be readable against a wallet
+   screen, so only the prompt gets the caps. */
+.wcard span { font-family: var(--mono); font-size: 8.5px; letter-spacing: .06em; color: var(--muted); }
+.wcard span.prompt { letter-spacing: .1em; text-transform: uppercase; }
+.wcard.on { border-color: rgba(242, 244, 243, .34); }
+
+.hint { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 8px; padding: 0 2px; }
+.hint.fee { color: var(--faint); }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips.tight { flex: 0 0 auto; }
+.chip {
+  appearance: none; cursor: pointer; font: inherit;
+  font-size: 11.5px; font-weight: 700; color: var(--dim);
+  background: rgba(255, 255, 255, .04); border: 1px solid rgba(245, 247, 246, .12);
+  border-radius: 9px; padding: 6px 11px;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+.chip:hover { border-color: var(--mint-deep); }
+.chip.on { color: #08090A; background: linear-gradient(180deg, var(--core), var(--mint)); border-color: var(--mint); }
+
+.inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.inputs input {
+  width: 100%; font: inherit; font-family: var(--disp); font-weight: 800; font-size: 14px;
+  text-align: center; color: var(--paper);
+  background: rgba(0, 0, 0, .35);
+  border: 1px solid rgba(245, 247, 246, .12); border-radius: 11px; padding: 10px 6px;
+  outline: none;
+}
+.inputs input:focus { border-color: var(--paper); }
+
+.row-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border-bottom: 1px solid rgba(245, 247, 246, .07); cursor: pointer;
+}
+.row-toggle:last-child { border-bottom: 0; }
+.row-toggle b { display: block; font-size: 13px; font-weight: 700; color: var(--paper); }
+.row-toggle i { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.row-toggle input { accent-color: var(--paper); width: 16px; height: 16px; flex: 0 0 auto; }
+
+/* -------------------------------------------------------------- history */
+.trade .dir { font-family: var(--disp); font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; padding: 2px 5px; border-radius: 4px; }
+.trade .dir.buy { color: var(--paper); border: 1px solid rgba(242, 244, 243, .45); }
+.trade .dir.sell { color: var(--void); background: var(--paper); border: 1px solid var(--paper); }
+.trade .st { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.trade .st.confirmed { color: var(--core); }
+.trade .st.failed {
+  color: var(--core); padding: 1px 5px; border-radius: 4px;
+  background: repeating-linear-gradient(135deg, rgba(242, 244, 243, .2) 0 5px, transparent 5px 10px);
+}
+
+/* ------------------------------------------------------------- tab bar */
+/* Four peers, so a bar and not a stack of headings. The label stays under
+   the icon: an icon-only bar makes people learn five glyphs to find one
+   pane. */
+.tabbar {
+  flex: 0 0 auto;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 4px; padding: 7px 8px calc(7px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  background: rgba(8, 9, 10, .92);
+}
+.tab {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 7px 2px 6px; border-radius: 11px;
+  font-family: var(--disp); font-size: 9px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--faint);
+  transition: color .15s ease, background .15s ease;
+}
+.tab svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tab:hover { color: var(--dim); }
+.tab.on { color: var(--paper); background: rgba(242, 244, 243, .09); }
+
+@media (prefers-reduced-motion: reduce) {
+  .skel i, .power .knob, .iconbtn.spin svg { animation: none; transition: none; }
+}
+
+/* --------------------------------------------------------- find a token */
+/* Resolve first, show WHAT it found, and only then open it. A contract is 44
+   characters nobody can read; the row under the field is the whole point —
+   it is where you learn that what you pasted is a $12K fork of the coin you
+   meant. */
+.find { display: flex; gap: 7px; margin: 0 0 10px; }
+.find input {
+  flex: 1; min-width: 0; font: inherit; font-size: 12.5px;
+  color: var(--paper); background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(245, 247, 246, .12); border-radius: 11px;
+  padding: 10px 12px; outline: none;
+  transition: border-color .15s ease, background .15s ease;
+}
+.find input::placeholder { color: #5f6870; }
+.find input:focus { border-color: var(--paper); background: rgba(255, 255, 255, .06); }
+.find button {
+  flex: 0 0 40px; appearance: none; cursor: pointer;
+  display: grid; place-items: center;
+  color: var(--void); background: var(--paper);
+  border: 1px solid var(--paper); border-radius: 11px;
+  transition: background .15s ease;
+}
+.find button:hover { background: #FFFFFF; }
+.find button svg { width: 15px; height: 15px; }
+.find.busy button { opacity: .5; pointer-events: none; }
+#findrows:not(:empty) { margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+
+/* A connected card offers the one thing left to do with it. */
+.wcard .drop {
+  margin-top: 7px; font-family: var(--mono); font-size: 8px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--faint);
+}
+.wcard.on:hover { border-color: rgba(242, 244, 243, .5); }
+.wcard.on:hover .drop { color: var(--paper); }
+
+/* ---------------------------------------------------------- one click */
+.acct {
+  display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; align-items: baseline;
+  padding: 11px 12px; border-radius: 11px;
+  background: rgba(0, 0, 0, .35); border: 1px solid rgba(245, 247, 246, .1);
+}
+.acct .k { font-family: var(--mono); font-size: 8.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.acct b { font-family: var(--mono); font-size: 11.5px; font-weight: 500; color: var(--paper); word-break: break-all; }
+.acctbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+/* Deleting a hot account is not undoable and the button should not look like
+   the ones beside it. */
+#turbo-wipe { border-style: dashed; color: var(--muted); }
+#turbo-wipe:hover { border-color: var(--paper); color: var(--paper); }
+.setting .power { flex: 0 0 auto; }
+
+/* The trading account's own positions — a short list under its address, so
+   money parked in a second account is never something you have to go and
+   look up elsewhere. */
+.rows.tiny { margin: 8px 0 2px; display: grid; gap: 2px; }
+.rows.tiny:empty { margin: 0; }
+.row.mini {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px;
+  align-items: baseline; padding: 5px 8px; border-radius: 7px;
+  background: var(--surface); border: 1px solid var(--line); font-size: 11.5px;
+}
+.row.mini .sym { color: var(--paper); font-weight: 650; letter-spacing: .01em; }
+.row.mini .amt { color: var(--muted); font-variant-numeric: tabular-nums; }
+.row.mini .usd { color: var(--dim); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+#turbo-home[disabled] { opacity: .45; cursor: default; }
+#turbo-home[data-armed="1"] { background: var(--paper); color: var(--void); border-color: var(--paper); }
+.viatag {
+  margin-left: 6px; padding: 1px 5px; border-radius: 4px;
+  border: 1px solid var(--line); background: var(--surface);
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); vertical-align: 1px;
+}
+
+/* Bringing your own key. Deliberately plain and deliberately not the first
+   thing on screen — the generated account above is the better path, and this
+   panel should look like the considered choice it is, not like a shortcut. */
+.bring { margin-top: 10px; display: grid; gap: 8px; }
+.bring .warn {
+  display: grid; gap: 4px; padding: 9px 10px; border-radius: 8px;
+  background: rgba(242, 244, 243, .06); border: 1px solid rgba(242, 244, 243, .16);
+}
+.bring .warn b { font-size: 11.5px; color: var(--paper); }
+.bring .warn span { font-size: 11px; line-height: 1.45; color: var(--muted); }
+.bring textarea {
+  width: 100%; resize: vertical; min-height: 46px;
+  font-family: var(--mono); font-size: 11px; line-height: 1.4;
+  color: var(--paper); background: var(--void);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px;
+  -webkit-text-security: disc;          /* a key on screen is a key over a shoulder */
+}
+.bring textarea:focus { outline: none; border-color: var(--muted); }
+.bring textarea::placeholder { -webkit-text-security: none; color: var(--faint); }
+.chip.go { background: var(--paper); color: var(--void); border-color: var(--paper); }
+.chip.go:disabled { opacity: .5; }
+#turbo-bring-note:empty { display: none; }
+
+/* Was the retired Solana strip; kept as a quiet card style, quieter than the
+   live one: it is not a feature, it is a way to get money out of something
+   that no longer trades. */
+.card.legacy { margin-top: 10px; border-style: dashed; opacity: .9; }
+.card.legacy .acct b { font-size: 10.5px; }
+#legacy-home[disabled] { opacity: .45; cursor: default; }
+#legacy-home[data-armed="1"], #legacy-wipe[data-armed="1"] {
+  background: var(--paper); color: var(--void); border-color: var(--paper);
+}
+
+/* The build-mismatch banner. Loud on purpose: everything under it is a
+   description of code that is not the code answering. */
+.stale {
+  margin: 0 14px 10px; padding: 10px 12px; border-radius: 10px;
+  display: grid; gap: 6px; justify-items: start;
+  background: var(--paper); color: var(--void);
+}
+.stale b { font-size: 12px; }
+.stale span { font-size: 11px; line-height: 1.45; opacity: .78; }
+.stale .chip.go { background: var(--void); color: var(--paper); border-color: var(--void); }
+
+#forgetrow { margin-top: 8px; }
+#forget-all[data-armed="1"] { background: var(--paper); color: var(--void); border-color: var(--paper); }

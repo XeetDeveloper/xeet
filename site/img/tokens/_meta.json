@@ -1,0 +1,126 @@
+{
+ "PONS": {
+  "name": "Pons",
+  "chain": "robinhood",
+  "addr": "0x39dBED3a2bd333467115dE45665cC57F813C4571",
+  "img": "https://cdn.dexscreener.com/cms/images/dkmXs8KYMyMXjuU1?width=800&height=800&quality=95&format=auto",
+  "cap": 599681560,
+  "price": "0.8534"
+ },
+ "PEPE": {
+  "name": "Pepe",
+  "chain": "ethereum",
+  "addr": "0x6982508145454Ce325dDbE47a25d4ec3d2311933",
+  "img": "https://cdn.dexscreener.com/cms/images/ae001139fa1fcd24f8421d82caf72d8e06fabafab33b089c5d2e6d18039354e7?width=800&height=800&quality=95&format=auto",
+  "cap": 1505316154,
+  "price": "0.000003638"
+ },
+ "WIF": {
+  "name": "dogwifhat",
+  "chain": "solana",
+  "addr": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+  "img": "https://cdn.dexscreener.com/cms/images/c3788335fe7010d9c32ede4f211118f4a703e0b47fee61cd503c33cc9cde242a?width=800&height=800&quality=95&format=auto"
+ },
+ "BONK": {
+  "name": "Bonk",
+  "chain": "solana",
+  "addr": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+  "img": "https://cdn.dexscreener.com/cms/images/ba03c0370670d176dc33bbd212eb023337a460ad7edfa053ca96ae22f31c3dcf?width=800&height=800&quality=95&format=auto",
+  "cap": 301011950,
+  "price": "0.000003420"
+ },
+ "JUP": {
+  "name": "Jupiter",
+  "chain": "solana",
+  "addr": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+  "img": "https://cdn.dexscreener.com/cms/images/4afaadf0f388adf44bd3a33cedfc601938f74ab7ede6d78e4063777bb0f64780?width=800&height=800&quality=95&format=auto",
+  "cap": 873888749,
+  "price": "0.2631"
+ },
+ "POPCAT": {
+  "name": "Popcat",
+  "chain": "solana",
+  "addr": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
+  "img": "https://cdn.dexscreener.com/cms/images/Pp6Fvh41hc0bHGK8?width=800&height=800&quality=95&format=auto",
+  "cap": 52744981,
+  "price": "0.05382"
+ },
+ "MOODENG": {
+  "name": "Moo Deng",
+  "chain": "solana",
+  "addr": "ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY",
+  "img": "https://cdn.dexscreener.com/cms/images/8e02e1e7dec93a4ef4b2404976232940a1d80595e774cf3c5f2d6f23026867a9?width=800&height=800&quality=95&format=auto",
+  "cap": 43874498,
+  "price": "0.04432"
+ },
+ "PENGU": {
+  "name": "Pudgy Penguins",
+  "chain": "solana",
+  "addr": "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
+  "img": "https://cdn.dexscreener.com/cms/images/9d5188f603b49ab02f7a75e5d2c2959ec2947c98181501fb11688672e9394efd?width=800&height=800&quality=95&format=auto",
+  "cap": 549817633,
+  "price": "0.008746"
+ },
+ "GIGA": {
+  "name": "GIGACHAD",
+  "chain": "solana",
+  "addr": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
+  "img": "https://cdn.dexscreener.com/cms/images/102ba1dee6cf6239b293dbd86e0e11ddf78e74cdce00030c4511096bd2480e26?width=800&height=800&quality=95&format=auto"
+ },
+ "SPX": {
+  "name": "SPX6900",
+  "chain": "ethereum",
+  "addr": "0xE0f63A424a4439cBE457D80E4f4b51aD25b2c56C",
+  "img": "https://cdn.dexscreener.com/cms/images/0eb409d135760501b28367efc53d816c2ca471aa701ae7a825ab171f25974ad6?width=800&height=800&quality=95&format=auto",
+  "cap": 533311924,
+  "price": "0.5728"
+ },
+ "PNUT": {
+  "name": "Peanut",
+  "chain": "ethereum",
+  "addr": "0xe69CcaAaEa33eBFe5B76E0dD373cD9a1A31fd410",
+  "img": "https://cdn.dexscreener.com/cms/images/49a911252852146e14908c1cc80e9b4c6b36a5e5dfc7668500cffa6f9f4e95a8?width=800&height=800&quality=95&format=auto",
+  "cap": 56172,
+  "price": "0.005617"
+ },
+ "MICHI": {
+  "name": "michi",
+  "chain": "solana",
+  "addr": "AywAYdNJnSLSXwKWYxDciPjqGRnwp4iZdQptuuQTpump",
+  "img": "https://cdn.dexscreener.com/cms/images/0EUG05iOzwtkFRAf?width=800&height=800&quality=95&format=auto",
+  "cap": 3413409,
+  "price": "0.003413"
+ },
+ "CHILLGUY": {
+  "name": "Just a chill guy",
+  "chain": "solana",
+  "addr": "Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump",
+  "img": "https://cdn.dexscreener.com/cms/images/20ae19e21d577f3aead6ae8722a7a3a66c5376cbf11f10d278807bef32551b46?width=800&height=800&quality=95&format=auto",
+  "cap": 15143510,
+  "price": "0.01514"
+ },
+ "FWOG": {
+  "name": "FWOG",
+  "chain": "solana",
+  "addr": "A8C3xuqscfmyLrte3VmTqrAq8kgMASius9AFNANwpump",
+  "img": "https://cdn.dexscreener.com/cms/images/ceccc0a74f91ec3a5f6162005af09d1f6e8bdbdd6a55f49e43ac8b217b6ec8bd?width=800&height=800&quality=95&format=auto",
+  "cap": 5119707,
+  "price": "0.005247"
+ },
+ "TRUMP": {
+  "name": "OFFICIAL TRUMP",
+  "chain": "solana",
+  "addr": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+  "img": "https://cdn.dexscreener.com/cms/images/85a2613c51c8ded8e51b1b3910487ab66691cb60fecec7d0905481a603bba899?width=800&height=800&quality=95&format=auto",
+  "cap": 464933590,
+  "price": "2.32"
+ },
+ "CASHCAT": {
+  "name": "Cash Cat",
+  "chain": "robinhood",
+  "addr": "0x020bfC650A365f8BB26819deAAbF3E21291018b4",
+  "img": "https://cdn.dexscreener.com/cms/images/Lq7a3pS9Wn8EuGp0?width=800&height=800&quality=95&format=auto",
+  "cap": 220256839,
+  "price": "0.2229"
+ }
+}

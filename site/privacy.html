@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy — Xeet</title>
+<meta name="robots" content="index, follow" />
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=2" />
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #08090A; color: #C9CFD3;
+         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+         font-size: 16px; line-height: 1.65; }
+  main { max-width: 46rem; margin: 0 auto; padding: 56px 24px 80px; }
+  h1 { color: #F2F4F3; font-size: 28px; letter-spacing: -0.02em; line-height: 1.25; }
+  h2 { color: #F2F4F3; font-size: 19px; margin-top: 2.2em; letter-spacing: -0.01em; }
+  strong { color: #F2F4F3; }
+  a { color: #F2F4F3; text-decoration: none; border-bottom: 1px solid rgba(242,244,243,.35); }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 8px 12px; border: 1px solid #23272B; vertical-align: top; }
+  th { color: #F2F4F3; background: #101214; }
+  code { background: #101214; border: 1px solid #1A1E22; border-radius: 5px;
+         padding: 1px 6px; font-size: 0.9em; }
+  .home { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 34px;
+          font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #8A9199;
+          border-bottom: none; }
+  .home:hover { color: #F2F4F3; }
+  /* --muted, not --dim: footer text is real content and must clear AA. */
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid #1A1E22;
+           font-size: 13px; color: #8A9199; }
+</style>
+</head><body>
+<main>
+<a class="home" href="/">← Xeet</a>
+<h1>Xeet — Privacy Policy</h1>
+<p><strong>Last updated:</strong> 1 October 2026</p>
+<p>Xeet is a browser extension that lets you trade tokens directly from X (Twitter). This policy explains exactly what the extension does and does not do with your information.</p>
+<p><strong>The short version:</strong> Xeet has no accounts and no server of its own. Nothing is sent to us, because there is nothing of ours to send it to. Your settings and swap history live on your own device. What leaves your browser goes directly from your browser to the market-data and routing services listed in section 3.</p>
+<p>Xeet never has access to <em>your</em> wallet&#39;s private key or seed phrase. There is one exception to &quot;no keys at all&quot;, and it is opt-in and described in full in section 2a: if you switch on one-click trading, the extension generates a <strong>separate</strong> trading key on your device, one per chain it supports for this.</p>
+<hr>
+<h2>1. We never have access to your keys or your funds</h2>
+<p>Xeet is <strong>non-custodial</strong>. It cannot hold, move, or spend your assets.</p>
+<ul>
+<li>Xeet never asks for, receives, stores, or transmits <strong>your wallet&#39;s</strong> private key, seed phrase, or recovery phrase. There is no code path in the extension capable of doing so, and no field anywhere that accepts one.</li>
+<li>Every transaction is built by a third-party router (Jupiter on Solana, LI.FI on EVM chains) and must be <strong>signed by you in your own wallet</strong>. Your wallet&#39;s confirmation screen is the only thing that authorises a transaction.</li>
+<li>Xeet cannot initiate a transfer, move funds, or trade on your behalf.</li>
+</ul>
+<h2>2a. One-click trading, if you turn it on</h2>
+<p>One-click trading is <strong>off by default</strong>. Turning it on has one consequence worth understanding completely, so here it is in full, starting with the part you would be angry to discover later.</p>
+<ul>
+<li><strong>There is one account per chain, and they are not equally safe.</strong> One-click works on Robinhood Chain and on Solana, with a separate key for each.</li>
+<li><strong>On Robinhood Chain, Xeet can read that account&#39;s key.</strong> Ethereum&#39;s signing curve (secp256k1) is not one your browser can hold a key for unreadably — Chrome&#39;s Web Crypto implements Ed25519 and P-256 and refuses secp256k1 outright. So that key is thirty-two bytes in this extension&#39;s local database. It never leaves your device and is never transmitted, but it is readable by this extension, which means a malicious future version of it could take whatever that account holds. That is the honest statement, and it is why everything below exists.</li>
+<li><strong>On Solana it cannot.</strong> That key is generated inside the browser&#39;s own key store as an unexportable Ed25519 key: Xeet can ask it to sign and cannot read it back out, and neither can a web page or a later version of this extension. A key you import is put through the same door — the bytes you paste are used once and what is kept cannot be exported. The caps and the separate-account advice still apply, because anything sitting on that account can still be traded by one tap.</li>
+<li><strong>It is a separate account you fund on purpose.</strong> Xeet creates it on your device. The wallet you connected never signs for it and is never involved in a one-click trade, so what this account can lose is what you put on it — provided you let Xeet generate it rather than importing the key to something larger.</li>
+<li><strong>No seed phrase, ever.</strong> If you import a key instead, it is one account&#39;s private key. Xeet has no field that accepts a recovery phrase and will refuse one that is pasted.</li>
+<li><strong>Every trade is capped</strong>, per trade and per day, and the check runs in the extension&#39;s own worker where a web page cannot reach it. Selling is not capped — a position too large to sell in one tap would be a trap, not a safeguard.</li>
+<li><strong>You can send it home at any time.</strong> Settings &rarr; One-click trading &rarr; <em>Send it home</em> moves the balance to the wallet you connected, less the gas for that one transfer. The destination is the connected wallet; there is no field to type an address into.</li>
+<li><strong>A Solana account from an earlier version keeps working.</strong> It is the same account, in the same place; nothing was deleted, and it can trade again.</li>
+</ul>
+
+<h2>2. What is stored on your device</h2>
+<p>Xeet stores the following locally, using your browser&#39;s extension storage. It stays on your device.</p>
+<table>
+<thead><tr><th>Stored</th><th>What it is</th></tr></thead>
+<tbody>
+<tr><td>Connected wallet</td><td>The <strong>public</strong> address and wallet name (e.g. &quot;Phantom&quot;) of the wallet you connected. A public address only — never keys.</td></tr>
+<tr><td>Swap history</td><td>Your Xeet trades: tokens, amounts, transaction hashes, chain, timestamp, status.</td></tr>
+<tr><td>Settings</td><td>Slippage tolerance, quick-buy amounts, quick-sell percentages, hover delay, what to detect, on/off state.</td></tr>
+<tr><td>One-click trading accounts</td><td>Only if you enable it: a signing key per chain — generated on your device, or one you imported — its address, and your caps. The Robinhood Chain key is stored in readable form; the Solana one is stored unexportably. See section 2a. Never transmitted.</td></tr>
+</tbody>
+</table>
+<p>Settings use Chrome&#39;s <strong>synced</strong> extension storage, so they follow your Chrome profile across your own signed-in browsers. That syncing is performed by your browser, not by us.</p>
+<p><strong>You can erase all of it at any time</strong> by removing the extension, which deletes its storage.</p>
+<h2>3. What leaves your browser, and to whom</h2>
+<p><strong>Xeet has no backend.</strong> There is no Xeet server, no analytics endpoint, no account system, and no telemetry of any kind. Every request below goes from your browser straight to a third party; we never receive a copy, because there is nowhere for a copy to go.</p>
+<p><strong>Market and token data</strong> — token addresses, tickers, and chain identifiers are sent so prices, charts, and token details can be returned:</p>
+<ul>
+<li>Dexscreener (<code>api.dexscreener.com</code>, and <code>cdn.dexscreener.com</code> for token logos) — prices, liquidity, volume, pairs, images</li>
+<li>Jupiter (<code>lite-api.jup.ag</code>) — Solana token search, prices, balances, routing</li>
+<li>LI.FI (<code>li.quest</code>) — EVM prices and routing</li>
+<li>GeckoTerminal (<code>api.geckoterminal.com</code>) — the price chart</li>
+</ul>
+<p><strong>Blockchain reads</strong> — your public wallet address is sent to read balances, token decimals, allowances, and to confirm a transaction:</p>
+<ul>
+<li>Public RPC nodes: <code>*.publicnode.com</code>, <code>api.mainnet.abs.xyz</code>, <code>rpc.mainnet.chain.robinhood.com</code></li>
+</ul>
+<p><strong>Building a trade</strong> — when you request a quote, your <strong>public</strong> wallet address is sent to the router (Jupiter or LI.FI) because a signable transaction must be addressed to you. No key material is involved.</p>
+<p><strong>Safety screening</strong> — when a token is screened, its contract address (not your address) is sent to GoPlus (<code>api.gopluslabs.io</code>).</p>
+<p>Each of these services has its own privacy policy and its own logging practices, which are outside our control.</p>
+<h2>4. What we do not do</h2>
+<ul>
+<li><strong>No analytics, of any kind.</strong> No SDK, no tracking pixels, no advertising identifiers, no install or usage counting. The extension makes no request to any server operated by us, because none exists.</li>
+<li><strong>No accounts.</strong> There is no sign-up, no email, no password.</li>
+<li><strong>No selling or sharing of data.</strong> We hold none to sell.</li>
+<li><strong>No advertising.</strong></li>
+<li><strong>No browsing history collection.</strong> Xeet only runs on <code>x.com</code> and <code>twitter.com</code>, and only reads post text to detect token addresses and tickers so it can show a card. It does not read, store, or transmit your posts, messages, timeline, or account.</li>
+</ul>
+<h2>5. Where Xeet runs</h2>
+<p>Xeet&#39;s content script is restricted to <code>x.com</code> and <code>twitter.com</code>. It does not run on any other website.</p>
+<h2>6. Children</h2>
+<p>Xeet is not directed to children and is not intended for anyone under 18.</p>
+<h2>7. Changes</h2>
+<p>If this policy changes materially, the updated version will be published here with a new &quot;Last updated&quot; date, and the extension listing will reflect it.</p>
+<h2>8. Contact</h2>
+<p>Questions about this policy: <strong><a href="mailto:hello@xeet.click">hello@xeet.click</a></strong></p>
+<!-- The X account is the other way to reach us. It appears only once a
+     handle is set in the admin panel — a contact route nobody can use is
+     worse than one less line. -->
+<p id="x-contact" hidden>Or on X: <a id="x-contact-link" href="#" target="_blank" rel="noopener"></a></p>
+<script>
+fetch("/api/ca", { cache: "no-store" })
+  .then((r) => (r.ok ? r.json() : null))
+  .then((d) => {
+    const h = d && typeof d.x === "string" ? d.x.trim() : "";
+    if (!h) return;
+    const a = document.getElementById("x-contact-link");
+    a.href = "https://x.com/" + h;
+    a.textContent = "@" + h;
+    document.getElementById("x-contact").hidden = false;
+  })
+  .catch(() => {});
+</script>
+
+<footer>Xeet — swap at the speed of X · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></footer>
+</main>
+</body></html>

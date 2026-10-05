@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Xeet — admin</title>
+<link rel="icon" href="./favicon.svg?v=2" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+  :root { --core:#F2F4F3; --muted:#8B8F8C; --dim:#6A6E6B; --line:rgba(242,244,243,.12); --bad:#FF6B5A; --good:#7DE08D; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+    background: #08090A; color: var(--core);
+    font: 15px/1.5 ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  }
+  .panel { width: 100%; max-width: 420px; }
+  .head { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .head img { height: 26px; }
+  .head span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px; letter-spacing: .22em; color: var(--dim); text-transform: uppercase; }
+  label { display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
+    margin: 0 0 8px; }
+  input {
+    width: 100%; padding: 13px 14px; margin-bottom: 18px;
+    background: rgba(255,255,255,.04); color: var(--core);
+    border: 1px solid var(--line); border-radius: 12px; font: inherit;
+  }
+  input:focus { outline: none; border-color: rgba(242,244,243,.4); }
+  #ca { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  button {
+    width: 100%; padding: 14px; border: 0; border-radius: 14px; cursor: pointer;
+    background: var(--core); color: #08090A; font: 800 15px/1 inherit; font-family: inherit;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .now { margin: 0 0 24px; padding: 14px; border: 1px solid var(--line); border-radius: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+    color: var(--muted); word-break: break-all; }
+  .now b { color: var(--core); font-weight: 400; }
+  .msg { margin-top: 16px; font-size: 13.5px; min-height: 20px; }
+  .msg.bad { color: var(--bad); }
+  .msg.good { color: var(--good); }
+  .hint { margin-top: 22px; color: var(--dim); font-size: 12.5px; line-height: 1.6; }
+  /* Safari zooms the page when a focused field is under 16px, and the zoom
+     does not come back on its own. */
+  @media (max-width: 430px) {
+    input { font-size: 16px; padding: 14px; }
+    #ca { font-size: 16px; }
+    button { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="head">
+    <img src="./lockup.svg?v=23" alt="Xeet">
+    <span>Admin</span>
+  </div>
+
+  <p class="now">Address now: <b id="now">…</b><br>X account now: <b id="nowx">…</b></p>
+
+  <form id="form" autocomplete="off">
+    <label for="user">Login</label>
+    <input id="user" name="username" autocomplete="username" spellcheck="false" required>
+
+    <label for="pass">Password</label>
+    <input id="pass" type="password" name="password" autocomplete="current-password" required>
+
+    <label for="ca">Contract address</label>
+    <input id="ca" placeholder="0x… / Solana mint — empty = soon" spellcheck="false">
+
+    <label for="x">X account</label>
+    <input id="x" placeholder="@name — empty = no link" spellcheck="false">
+
+    <button id="go" type="submit">Publish</button>
+  </form>
+
+  <p class="msg" id="msg"></p>
+  <p class="hint">An empty address puts the pill back to <b>CA: soon</b>. The X account
+    lights up the logo in the header and footer and adds it to the contact lines on
+    Privacy and Terms. Changes are live within about ten seconds — no redeploy.</p>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+/* Nothing is remembered between visits: no cookie, no token in storage. The
+   password is typed for each change, which is the right trade when a change
+   happens once and the page is the only key to the address on the home page. */
+async function refresh() {
+  try {
+    const r = await fetch("/api/ca?t=" + Date.now(), { cache: "no-store" });
+    const { ca, x } = await r.json();
+    $("now").textContent = ca || "soon (not announced)";
+    $("nowx").textContent = x ? "@" + x : "none (logo not linked)";
+    $("ca").value = ca || "";
+    $("x").value = x ? "@" + x : "";
+  } catch {
+    $("now").textContent = "could not read";
+  }
+}
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("msg");
+  msg.className = "msg";
+  msg.textContent = "Publishing…";
+  $("go").disabled = true;
+  try {
+    const r = await fetch("/api/ca", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        user: $("user").value, pass: $("pass").value,
+        ca: $("ca").value, x: $("x").value,
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Failed");
+    msg.className = "msg good";
+    msg.textContent = "Saved. " + (d.ca ? "CA " + d.ca : "CA back to “soon”")
+      + (d.x ? " · X @" + d.x : " · no X link");
+    $("pass").value = "";
+    refresh();
+  } catch (err) {
+    msg.className = "msg bad";
+    msg.textContent = err.message;
+  } finally {
+    $("go").disabled = false;
+  }
+});
+
+refresh();
+</script>
+</body>
+</html>

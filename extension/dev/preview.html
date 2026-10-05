@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Xeet — panel harness</title>
+<!--
+  A bench for the panel, not a shipped page.
+
+  The extension's real data layer is a service worker; here the same message
+  contract is answered by shim.js talking to the same public APIs directly, so
+  what renders below is the panel filled with a live token — the one thing that
+  cannot be checked by reading the source. Wallet signing is the only part that
+  cannot run here, because there is no page wallet to sign with.
+-->
+<link rel="stylesheet" href="../assets/fonts/fonts.css">
+<link rel="stylesheet" href="../assets/loupe.css">
+<link rel="stylesheet" href="../assets/xeet.css">
+<style>
+  body {
+    margin: 0; min-height: 100vh; background: #08090A;
+    font-family: 'Inter', system-ui, sans-serif; color: #C9CFD3;
+  }
+  .bar {
+    position: fixed; inset: 0 0 auto 0; z-index: 10; display: flex; gap: 10px; align-items: center;
+    padding: 12px 18px; background: rgba(8,9,10,.92); border-bottom: 1px solid #23272B;
+  }
+  .bar input {
+    font: inherit; font-size: 13px; padding: 8px 12px; width: 320px; color: #F2F4F3;
+    background: #101214; border: 1px solid #23272B; border-radius: 10px; outline: none;
+  }
+  .bar button {
+    font: inherit; font-size: 13px; font-weight: 700; padding: 8px 16px; cursor: pointer;
+    color: #08090A; background: #F2F4F3; border: 0; border-radius: 10px;
+  }
+  .bar span { font-size: 12px; color: #8A9199; }
+  .feed { padding: 96px 40px 600px; max-width: 620px; }
+  .post {
+    background: #0C0E10; border: 1px solid #23272B; border-radius: 16px;
+    padding: 16px 18px; margin-bottom: 16px; font-size: 14.5px; line-height: 1.55;
+  }
+  .who { color: #F2F4F3; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .who i { font-style: normal; color: #8A9199; font-weight: 400; margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <input id="q" value="$BONK">
+  <button id="go" type="button">Open the panel</button>
+  <span id="status">or hover any tag below</span>
+</div>
+
+<div class="feed" id="feed">
+  <div class="post"><div class="who">blknoiz06<i>@blknoiz06 · 11m</i></div><div data-testid="tweetText">this is the trade of the cycle and nobody is positioned. $BONK is the only thing i'm watching this week.</div></div>
+  <div class="post"><div class="who">notthreadguy<i>@notthreadguy · 32m</i></div><div data-testid="tweetText">$WIF holding this level is the only chart that matters today.</div></div>
+  <div class="post"><div class="who">0xngmi<i>@0xngmi · 1h</i></div><div data-testid="tweetText">new one on base: 0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed — thin but it moves.</div></div>
+  <div class="post"><div class="who">ansem<i>@blknoiz06 · 2h</i></div><div data-testid="tweetText">DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263 is still the cleanest pool on solana for this.</div></div>
+  <div class="post"><div class="who">someone<i>@someone · 3h</i></div><div data-testid="tweetText">$PEPE and $JUP both quiet, $SPX not so much.</div></div>
+</div>
+
+<script src="../src/chains.js"></script>
+<script src="../src/marks.js"></script>
+<script src="../src/config.js"></script>
+<script src="../src/format.js"></script>
+<script src="../src/bridge.js"></script>
+<script src="shim.js"></script>
+<script type="module" src="../src/background.js"></script>
+<script src="../src/panel-html.js"></script>
+<script src="../src/wallet.js"></script>
+<script src="../src/panel.js"></script>
+<script src="../src/content.js"></script>
+<script>
+  document.getElementById("go").addEventListener("click", () => {
+    const ghost = document.createElement("span");
+    ghost.style.cssText = "position:fixed;left:50%;top:80px;width:0;height:0";
+    document.body.appendChild(ghost);
+    window.XEET_PANEL.enterAnchor();
+    window.XEET_PANEL.open(ghost, { query: document.getElementById("q").value.trim() });
+  });
+</script>
+</body>
+</html>

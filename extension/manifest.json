@@ -1,0 +1,97 @@
+{
+  "manifest_version": 3,
+  "name": "Xeet — Swap at the speed of X",
+  "version": "1.6.1",
+  "description": "Trade any token on X without leaving the feed. Non-custodial, ten chains, 0.5% per swap.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Xeet",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://twitter.com/*",
+    "https://x.com/*",
+    "https://api.dexscreener.com/*",
+    "https://dd.dexscreener.com/*",
+    "https://cdn.dexscreener.com/*",
+    "https://lite-api.jup.ag/*",
+    "https://li.quest/*",
+    "https://api.geckoterminal.com/*",
+    "https://api.gopluslabs.io/*",
+    "https://solana-rpc.publicnode.com/*",
+    "https://ethereum-rpc.publicnode.com/*",
+    "https://base-rpc.publicnode.com/*",
+    "https://arbitrum-one-rpc.publicnode.com/*",
+    "https://optimism-rpc.publicnode.com/*",
+    "https://polygon-bor-rpc.publicnode.com/*",
+    "https://bsc-rpc.publicnode.com/*",
+    "https://avalanche-c-chain-rpc.publicnode.com/*",
+    "https://api.mainnet.abs.xyz/*",
+    "https://rpc.mainnet.chain.robinhood.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "src/bridge.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "src/chains.js",
+        "src/marks.js",
+        "src/config.js",
+        "src/format.js",
+        "src/panel-html.js",
+        "src/wallet.js",
+        "src/panel.js",
+        "src/content.js"
+      ],
+      "css": [
+        "assets/loupe.css",
+        "assets/xeet.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/*",
+        "assets/fonts/*",
+        "icons/*"
+      ],
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ]
+    }
+  ]
+}
