@@ -6,3 +6,9 @@ node_modules
 test-ledger
 .yarn
 .surfpool
+local/.keys.json
+local/.ledger/
+local/.pids/
+local/state.json
+local/.validator.log
+local/.price.log

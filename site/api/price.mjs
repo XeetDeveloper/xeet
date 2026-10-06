@@ -184,7 +184,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { price, pools, liquidity } = await priceOf(chain, address);
+    /* A price the caller chose rather than one the pools showed. It exists so
+       a local run can test a liquidation without waiting for one, and it is
+       off unless the environment switches it on — a service that signs
+       whatever it is handed is not an oracle, it is a faucet for anybody who
+       can reach it. The deployed one never sets this. */
+    const forced = process.env.XEET_PRICE_OVERRIDE === "1"
+      ? url.searchParams.get("price")
+      : null;
+    const { price, pools, liquidity } = forced
+      ? { price: forced, pools: 0, liquidity: 0 }
+      : await priceOf(chain, address);
     const value = scale18(price);
     if (value === 0n) throw new Error("this token's price rounds to nothing at 18 decimals");
     const at = Math.floor(Date.now() / 1000);
@@ -200,7 +210,7 @@ export default async function handler(req, res) {
         message: message.toString("hex"),
         signature: signature.toString("hex"),
         pubkey: pubkey.toString("hex"),
-        price, pools, liquidity, maxAge: 120,
+        price, pools, liquidity, maxAge: 120, override: !!forced,
       });
     }
 
