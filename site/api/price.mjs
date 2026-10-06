@@ -19,6 +19,7 @@
  */
 import * as secp from "./_lib/secp256k1.js";
 import { keccak_256 } from "./_lib/sha3.js";
+import crypto from "node:crypto";
 
 const KEY = process.env.XEET_OPERATOR_KEY || "";
 const MIN_POOL_USD = 3000;
@@ -115,6 +116,52 @@ export function scale18(input) {
   return out;
 }
 
+/* ------------------------------------------------- the Solana attestation */
+/* The Solana vault does not verify a signature itself: the transaction carries
+ * an ed25519 precompile instruction and the program insists that it checked
+ * exactly these bytes with exactly this key. So what goes back is the message
+ * and the signature, and the extension assembles the instruction.
+ *
+ * Signed with node's own crypto rather than a library: an ed25519 seed wrapped
+ * in the eleven bytes of PKCS8 that a raw key needs, and nothing else. */
+const PKCS8_ED25519 = Buffer.from("302e020100300506032b657004220420", "hex");
+
+function solanaKey() {
+  const raw = Buffer.from(KEY.replace(/^0x/, ""), "hex");
+  const seed = raw.length === 64 ? raw.subarray(0, 32) : raw;   // keypair or seed
+  if (seed.length !== 32) throw new Error("operator key is not an ed25519 seed");
+  return crypto.createPrivateKey({
+    key: Buffer.concat([PKCS8_ED25519, seed]), format: "der", type: "pkcs8",
+  });
+}
+
+/* The message the program rebuilds and compares against, byte for byte:
+   a tag, the vault it is for, the coin, the price and when it was seen. */
+export function solanaMessage(vault, token, value, at) {
+  const m = Buffer.alloc(13 + 32 + 32 + 16 + 8);
+  m.write("xeet-price-v1", 0, "latin1");
+  bs58Decode(vault).copy(m, 13);
+  bs58Decode(token).copy(m, 45);
+  let v = BigInt(value);
+  for (let i = 0; i < 16; i++) { m[77 + i] = Number(v & 0xffn); v >>= 8n; }
+  m.writeBigInt64LE(BigInt(at), 93);
+  return m;
+}
+
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function bs58Decode(s) {
+  let n = 0n;
+  for (const c of String(s)) {
+    const i = B58.indexOf(c);
+    if (i < 0) throw new Error("bad base58");
+    n = n * 58n + BigInt(i);
+  }
+  const out = Buffer.alloc(32);
+  for (let i = 31; i >= 0; i--) { out[i] = Number(n & 0xffn); n >>= 8n; }
+  // leading '1's are leading zero bytes; a 32-byte key needs no further work
+  return out;
+}
+
 export default async function handler(req, res) {
   res.setHeader("access-control-allow-origin", "*");
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -125,11 +172,14 @@ export default async function handler(req, res) {
   const address = url.searchParams.get("address") || "";
   const vault = url.searchParams.get("vault") || process.env.XEET_VAULT || "";
   const chainId = Number(url.searchParams.get("chainId") || process.env.XEET_VAULT_CHAIN || 4663);
+  // Which venue is asking: an EVM vault verifies an EIP-712 signature itself,
+  // a Solana one has the runtime verify an ed25519 one for it.
+  const scheme = (url.searchParams.get("scheme") || (/^0x/.test(vault) ? "evm" : "solana"));
 
   if (!/^[A-Za-z0-9]{32,44}$|^0x[0-9a-fA-F]{40}$/.test(address)) {
     return res.status(400).json({ error: "bad token address" });
   }
-  if (!/^0x[0-9a-fA-F]{40}$/.test(vault)) {
+  if (scheme === "evm" ? !/^0x[0-9a-fA-F]{40}$/.test(vault) : !/^[A-Za-z0-9]{32,44}$/.test(vault)) {
     return res.status(400).json({ error: "no vault address" });
   }
 
@@ -138,6 +188,22 @@ export default async function handler(req, res) {
     const value = scale18(price);
     if (value === 0n) throw new Error("this token's price rounds to nothing at 18 decimals");
     const at = Math.floor(Date.now() / 1000);
+
+    if (scheme === "solana") {
+      const message = solanaMessage(vault, address, value, at);
+      const key = solanaKey();
+      const signature = crypto.sign(null, message, key);
+      const pubkey = crypto.createPublicKey(key).export({ format: "der", type: "spki" }).subarray(-32);
+      res.setHeader("cache-control", "public, max-age=0, s-maxage=5");
+      return res.status(200).json({
+        scheme, value: value.toString(), at,
+        message: message.toString("hex"),
+        signature: signature.toString("hex"),
+        pubkey: pubkey.toString("hex"),
+        price, pools, liquidity, maxAge: 120,
+      });
+    }
+
     const market = marketId(chain, address);
     const signature = await sign(digest(chainId, vault, market, value, at));
 
