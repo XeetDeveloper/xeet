@@ -1297,6 +1297,43 @@ const HANDLERS = {
   },
   perpSubmit: (m) => perps.submit({ action: m.action, nonce: m.nonce, signature: m.signature }),
 
+  /* One approval, then taps. The agent key lives here; the wallet is asked to
+     authorise it exactly once and never again. */
+  perpAgent: async (m) => {
+    const a = await turbo.agent();
+    if (!a) return { address: null, live: false };
+    const live = await perps.agentLive(m.address, a.address).catch(() => false);
+    return { address: a.address, live };
+  },
+
+  perpAgentApproval: async () => {
+    const { address } = await turbo.makeAgent();
+    return { agentAddress: address, ...perps.approveAgentPayload({ agentAddress: address, nonce: Date.now() }) };
+  },
+
+  perpAgentConfirm: (m) =>
+    perps.submit({ action: m.action, nonce: m.nonce, signature: m.signature }),
+
+  /* The order itself, signed by the agent — no wallet window at all. */
+  perpTap: async (m) => {
+    const a = await turbo.agent();
+    if (!a) throw new Error("one-tap perps are not enabled yet");
+    const market = await perps.marketFor(m.symbol);
+    if (!market || !market.mid) throw new Error("no perp market for " + m.symbol);
+    const slip = Math.min(Math.max(Number(m.slippagePct) || 1, 0.1), 5) / 100;
+    const px = market.mid * (m.isBuy ? 1 + slip : 1 - slip);
+    const size = (Number(m.usd) * Math.max(1, Number(m.leverage) || 1)) / market.mid;
+    const order = perps.orderPayload({
+      assetIndex: market.index,
+      isBuy: !!m.isBuy,
+      price: perps.fmtPrice(px, market.szDecimals),
+      size: perps.fmtSize(size, market.szDecimals),
+      nonce: Date.now(),
+    });
+    const signature = await perps.signWith(a.key, order.typedData);
+    return perps.submit({ action: order.action, nonce: order.nonce, signature });
+  },
+
   turboInfo: async () => ({
     build: BUILD,
     settings: await turbo.settings(),

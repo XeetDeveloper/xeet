@@ -355,6 +355,32 @@ function b64urlDecode(s) {
   return b64decode(pad + "=".repeat((4 - pad.length % 4) % 4));
 }
 
+/* The Hyperliquid agent key.
+ *
+ * Kept next to the trading accounts because it is the same kind of object: a
+ * key this extension holds. It is a weaker one on purpose — an agent may
+ * place and cancel orders and may not move a cent out of the account, so the
+ * worst case here is unwanted trades, not a drained balance. */
+export async function agent() {
+  const rec = await get("hlagent");
+  return rec ? { address: rec.address, key: rec.key } : null;
+}
+
+export async function makeAgent() {
+  const existing = await get("hlagent");
+  if (existing) return { address: existing.address };
+  const { newAgentKey, addressOfKey } = await import("./perps.js");
+  const key = newAgentKey();
+  const address = addressOfKey(key);
+  await put({ id: "hlagent", key, address });
+  return { address };
+}
+
+export async function dropAgent() {
+  await del("hlagent");
+  return true;
+}
+
 export async function wipe(kind) {
   await del(kind || "svm");
   return true;

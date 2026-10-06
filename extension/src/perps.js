@@ -19,6 +19,7 @@
  * against the live exchange before it is trusted.
  */
 import { keccak_256 } from "../vendor/sha3.js";
+import * as secp from "../vendor/secp256k1.js";
 
 const API = "https://api.hyperliquid.xyz";
 
@@ -186,6 +187,108 @@ export function typedDataFor(action, nonce) {
     primaryType: "Agent",
     message: { source: "a", connectionId },
   };
+}
+
+/* ------------------------------------------------------- the agent key */
+/* One approval instead of a wallet window per order.
+ *
+ * Hyperliquid lets an account authorise an "agent": a key that may place and
+ * cancel orders on its behalf and MAY NOT MOVE MONEY. It cannot withdraw, it
+ * cannot transfer, it cannot approve another agent. So Xeet generating one and
+ * keeping it is a different proposition from holding funds — the worst a
+ * stolen agent key can do is trade an account it cannot empty.
+ *
+ * The margin still lives in the user's own exchange account, which they
+ * deposit to and withdraw from themselves. There is no version of perps where
+ * that is not true for somebody, and we are not going to be that somebody. */
+export function approveAgentPayload({ agentAddress, name = "xeet", nonce }) {
+  const action = {
+    type: "approveAgent",
+    hyperliquidChain: "Mainnet",
+    signatureChainId: "0xa4b1",          // Arbitrum, where the account lives
+    agentAddress,
+    agentName: name,
+    nonce,
+  };
+  const typedData = {
+    domain: {
+      name: "HyperliquidSignTransaction",
+      version: "1",
+      chainId: 42161,
+      verifyingContract: "0x0000000000000000000000000000000000000000",
+    },
+    types: {
+      "HyperliquidTransaction:ApproveAgent": [
+        { name: "hyperliquidChain", type: "string" },
+        { name: "agentAddress", type: "address" },
+        { name: "agentName", type: "string" },
+        { name: "nonce", type: "uint64" },
+      ],
+    },
+    primaryType: "HyperliquidTransaction:ApproveAgent",
+    message: {
+      hyperliquidChain: action.hyperliquidChain,
+      agentAddress,
+      agentName: name,
+      nonce,
+    },
+  };
+  return { action, nonce, typedData };
+}
+
+/* The EIP-712 digest, computed here so the agent can sign without a wallet.
+   Written out rather than imported for the same reason as the msgpack above:
+   one wrong byte and the exchange recovers somebody else. */
+export function digestOf(td) {
+  const utf8 = (x) => new TextEncoder().encode(x);
+  const pad32 = (b) => { const o = new Uint8Array(32); o.set(b, 32 - b.length); return o; };
+  const cat = (...a) => {
+    const out = new Uint8Array(a.reduce((n, x) => n + x.length, 0));
+    let i = 0; for (const x of a) { out.set(x, i); i += x.length; } return out;
+  };
+  const bytes = (hex) => Uint8Array.from((hex.replace(/^0x/, "").match(/../g) || []).map((h) => parseInt(h, 16)));
+  const num32 = (n) => { let h = BigInt(n).toString(16); if (h.length % 2) h = "0" + h; return pad32(bytes(h)); };
+
+  const dsType = keccak_256(utf8(
+    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"));
+  const ds = keccak_256(cat(dsType, keccak_256(utf8(td.domain.name)), keccak_256(utf8(td.domain.version)),
+    num32(td.domain.chainId), pad32(bytes(td.domain.verifyingContract))));
+
+  const fields = td.types[td.primaryType];
+  const typeStr = `${td.primaryType}(${fields.map((f) => `${f.type} ${f.name}`).join(",")})`;
+  const parts = [keccak_256(utf8(typeStr))];
+  for (const f of fields) {
+    const v = td.message[f.name];
+    if (f.type === "string") parts.push(keccak_256(utf8(v)));
+    else if (f.type === "address") parts.push(pad32(bytes(v)));
+    else if (f.type === "bytes32") parts.push(bytes(v));
+    else parts.push(num32(v));
+  }
+  return keccak_256(cat(Uint8Array.from([0x19, 0x01]), ds, keccak_256(cat(...parts))));
+}
+
+/* The agent signing an order: the same digest a wallet would be shown, signed
+   locally so a tap is a trade rather than a tap and a popup. */
+export async function signWith(key, typedData) {
+  const packed = await secp.signAsync(digestOf(typedData), key, { prehash: false, format: "recovered" });
+  const sig = secp.Signature.fromBytes(packed, "recovered");
+  return "0x" + sig.r.toString(16).padStart(64, "0")
+    + sig.s.toString(16).padStart(64, "0")
+    + (sig.recovery + 27).toString(16).padStart(2, "0");
+}
+
+export const newAgentKey = () => secp.utils.randomSecretKey();
+export const addressOfKey = (key) =>
+  "0x" + [...keccak_256(secp.getPublicKey(key, false).slice(1)).slice(-20)]
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+
+/* Is the agent still authorised? The exchange is the only authority on that —
+   a key we hold means nothing if the account revoked it. */
+export async function agentLive(user, agentAddress) {
+  if (!user || !agentAddress) return false;
+  const r = await post("/info", { type: "extraAgents", user }).catch(() => null);
+  const list = Array.isArray(r) ? r : [];
+  return list.some((a) => String(a.address || "").toLowerCase() === agentAddress.toLowerCase());
 }
 
 /* What the wallet hands back is one 65-byte string; the exchange wants it in

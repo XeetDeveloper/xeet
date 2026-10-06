@@ -1327,7 +1327,8 @@
     if (session.busy) return;
     const t = session.token;
     const usd = (settings.buyPresets && settings.buyPresets[0]) || 25;
-    if (!wallet().address) return walletMenu();
+    const w = wallet();
+    if (!w.address) return walletMenu();
 
     session.busy = true;
     pinned = true;
@@ -1337,14 +1338,23 @@
     ));
 
     try {
-      const order = await send({
-        type: "perpOrder",
+      /* One approval, then taps.
+         The agent may trade this account and may not move money out of it, so
+         the wallet is asked once — here — and never again. After that an order
+         is a tap, the way a swap is on Robinhood Chain. */
+      const agent = await send({ type: "perpAgent", address: w.address }).catch(() => null);
+      if (!agent || !agent.live) {
+        flipTo(reviewCard("One approval first", "Your wallet authorises Xeet to place orders — it can never withdraw"));
+        const ap = await send({ type: "perpAgentApproval" });
+        const { signature: approval } = await W.signTyped(ap.typedData);
+        await send({ type: "perpAgentConfirm", action: ap.action, nonce: ap.nonce, signature: approval });
+        flipTo(reviewCard(isBuy ? "Going long" : "Going short", `${t.symbol} · $${usd} at ${leverage}x`));
+      }
+
+      const res = await send({
+        type: "perpTap",
         symbol: t.symbol, isBuy, usd, leverage,
         slippagePct: (settings.slippageBps || 100) / 100,
-      });
-      const { signature } = await W.signTyped(order.typedData);
-      const res = await send({
-        type: "perpSubmit", action: order.action, nonce: order.nonce, signature,
       });
       const filled = (((res || {}).response || {}).data || {}).statuses || [];
       const px = (filled[0] && filled[0].filled && filled[0].filled.avgPx) || null;
