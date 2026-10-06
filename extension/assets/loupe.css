@@ -1449,3 +1449,33 @@
 /* And when the bar is used instead — a live panel whose requests started
    failing — it sits above the faces rather than under them. */
 .xeet-lp .xeet-orphan{ position:relative; z-index:40; }
+
+/* -------------------------------------------------------------- perps */
+/* A single row under the sizes, present only for tickers that actually have
+   a perp market. Long and short carry the only colour in the panel, because
+   picking the wrong side is the one mistake the interface can prevent. */
+.xeet-lp .perpstrip {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px; padding: 8px 10px;
+  border: 1px solid var(--lp-line, #23272B); border-radius: 12px;
+  background: rgba(255, 255, 255, .03);
+}
+.xeet-lp .perplbl {
+  font: 600 10px/1 ui-monospace, Menlo, monospace; letter-spacing: .14em;
+  color: var(--lp-muted, #8A9199); white-space: nowrap;
+}
+.xeet-lp .perplev {
+  font: 700 11px/1 ui-monospace, Menlo, monospace;
+  color: var(--lp-paper, #F2F4F3); background: rgba(255, 255, 255, .06);
+  border: 1px solid var(--lp-line, #23272B); border-radius: 8px;
+  padding: 6px 8px; cursor: pointer; margin-right: auto;
+}
+.xeet-lp .perplev:hover { background: rgba(255, 255, 255, .12); }
+.xeet-lp .perpbtn {
+  font: 800 11px/1 var(--lp-disp, system-ui); letter-spacing: .08em;
+  border-radius: 9px; padding: 8px 14px; cursor: pointer; border: 1px solid transparent;
+}
+.xeet-lp .perpbtn.long { color: #04170F; background: #00E08A; }
+.xeet-lp .perpbtn.short { color: #1A0509; background: #FF4D6D; }
+.xeet-lp .perpbtn:hover { filter: brightness(1.08); }
+.xeet-lp .perpbtn:active { transform: translateY(1px); }

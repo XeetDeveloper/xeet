@@ -36,7 +36,7 @@
    *
    * A literal, kept in step with the manifest by build.sh, which refuses to
    * build when they disagree. */
-  const BUILD = "1.6.1";
+  const BUILD = "1.8.0";
 
   const { CHAINS, FEE } = g.XEET_CFG;
   const F = g.XEET_FMT;
@@ -1147,6 +1147,15 @@
 
     setSide(session.side);
 
+    // Does this ticker have a perp at all? Asked once, quietly; the strip
+    // only exists if the answer is yes.
+    if (session.perp === undefined) {
+      session.perp = null;
+      send({ type: "perpMarket", symbol: t.symbol })
+        .then((m) => { if (session && session.token === t) { session.perp = m || null; perpStrip(); } })
+        .catch(() => {});
+    }
+
     setText("bname", (t.symbol || "?").toUpperCase());
     setText("bca", F.shortAddr(t.address, 5, 5));
     setText("slp", (settings.slippageBps / 100).toFixed(settings.slippageBps % 100 ? 2 : 1).replace(/\.0$/, "") + "%");
@@ -1260,6 +1269,97 @@
     if (!holds && session.side === "sell") setSide("buy");
   }
 
+  /* ----------------------------------------------------------- perps */
+  /* Most tokens on a timeline have no perp market, so this row exists only
+     when one does: the strip is built and removed, never hidden, so a token
+     without a market cannot show a disabled control nobody can use.
+     Leverage multiplies the size, not the risk disclosure — the liquidation
+     price comes from the exchange after the fill, in the popup. */
+  const LEVERAGE = [2, 5, 10, 20];
+
+  function perpStrip() {
+    const host = el.tiles && el.tiles.parentElement;
+    const old = host && host.querySelector(".perpstrip");
+    if (old) old.remove();
+    if (!host || !session || !session.perp || session.viewOnly || session.side === "sell") return;
+
+    const m = session.perp;
+    const lev = session.perpLev || Math.min(5, m.maxLeverage || 5);
+    const row = document.createElement("div");
+    row.className = "perpstrip";
+
+    const label = document.createElement("span");
+    label.className = "perplbl";
+    label.textContent = "PERP " + m.name;
+
+    const levBtn = document.createElement("button");
+    levBtn.className = "perplev";
+    levBtn.type = "button";
+    levBtn.textContent = lev + "x";
+    levBtn.title = "Leverage — up to " + (m.maxLeverage || "?") + "x";
+    levBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const options = LEVERAGE.filter((v) => v <= (m.maxLeverage || 20));
+      session.perpLev = options[(options.indexOf(lev) + 1) % options.length];
+      perpStrip();
+    });
+
+    const mk = (side) => {
+      const b = document.createElement("button");
+      b.className = "perpbtn " + side;
+      b.type = "button";
+      b.textContent = side.toUpperCase();
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        perpTrade(side === "long", session.perpLev || lev);
+      });
+      return b;
+    };
+
+    row.append(label, levBtn, mk("long"), mk("short"));
+    host.appendChild(row);
+  }
+
+  /* One order, start to finish: the worker prices and packs it, the wallet
+     signs the typed data, the worker posts it to the exchange. Xeet never
+     holds anything — the margin lives in the user's own exchange account. */
+  async function perpTrade(isBuy, leverage) {
+    if (session.busy) return;
+    const t = session.token;
+    const usd = (settings.buyPresets && settings.buyPresets[0]) || 25;
+    if (!wallet().address) return walletMenu();
+
+    session.busy = true;
+    pinned = true;
+    flipTo(reviewCard(
+      (isBuy ? "Going long" : "Going short"),
+      `${t.symbol} · $${usd} at ${leverage}x`,
+    ));
+
+    try {
+      const order = await send({
+        type: "perpOrder",
+        symbol: t.symbol, isBuy, usd, leverage,
+        slippagePct: (settings.slippageBps || 100) / 100,
+      });
+      const { signature } = await W.signTyped(order.typedData);
+      const res = await send({
+        type: "perpSubmit", action: order.action, nonce: order.nonce, signature,
+      });
+      const filled = (((res || {}).response || {}).data || {}).statuses || [];
+      const px = (filled[0] && filled[0].filled && filled[0].filled.avgPx) || null;
+      flipTo(reviewCard(
+        isBuy ? "Long opened" : "Short opened",
+        px ? `${t.symbol} at ${px}` : `${t.symbol} · ${leverage}x`,
+      ));
+      dismissLater();
+    } catch (e) {
+      flipTo(failCard("The order did not go through", e.message || "Rejected", false, null));
+    } finally {
+      session.busy = false;
+    }
+  }
+
   /* The tiles. Three presets and a custom field — the fourth cell is the
      field, not a fourth preset. */
   function tiles() {
@@ -1295,6 +1395,8 @@
       });
       box.appendChild(tile);
     });
+
+    perpStrip();
 
     // The custom tile: a field, not a button. The dollar sign is a sibling so
     // the caret can never land in front of it.
@@ -2015,6 +2117,51 @@
         } catch { watch.disabled = false; }
       });
       actions.appendChild(watch);
+    }
+
+    /* The card. Offered on every finished trade, because the moment somebody
+       wants to show a trade is the moment it lands — not later, from a list.
+       The multiple is computed from THIS device's history and appears only
+       when that history covers the whole position; see src/card.js. */
+    if (window.XEET_CARD) {
+      const share = document.createElement("button");
+      share.className = "fin-watch";
+      share.type = "button";
+      share.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 14l4.5-4.5 4 4 3-3L21 15"/></svg><span>Trade card</span>';
+      share.addEventListener("click", async () => {
+        const label = share.querySelector("span");
+        share.disabled = true;
+        label.textContent = "Drawing…";
+        try {
+          const history = await send({ type: "history" }).catch(() => []);
+          const entry = {
+            // which way round it went, read off the legs rather than passed in
+            at: Date.now(),
+            side: from.address === session.token.address ? "sell" : "buy",
+            address: session.token.address,
+            inAmount: q.inAmount, outAmount: q.outAmount, usd: usd || 0,
+          };
+          const blob = await window.XEET_CARD.drawCard({
+            side: entry.side,
+            symbol: session.token.symbol,
+            chainName: chain.name,
+            inAmount: q.inAmount, inSymbol: from.symbol,
+            outAmount: q.outAmount, outSymbol: to.symbol,
+            usd,
+            multiple: window.XEET_CARD.multipleFrom(history, entry),
+          }, chrome.runtime.getURL("icons/icon128.png"),
+             chrome.runtime.getURL("assets/shards.jpg"));
+          const how = await window.XEET_CARD.deliver(
+            blob, `xeet-${(session.token.symbol || "trade").toLowerCase()}.png`);
+          share.classList.add("done");
+          label.textContent = how === "copied" ? "Copied — paste it in a post" : "Saved to downloads";
+        } catch (e) {
+          label.textContent = "Could not draw it";
+        } finally {
+          setTimeout(() => { share.disabled = false; }, 400);
+        }
+      });
+      actions.appendChild(share);
     }
 
     const meta = d.querySelectorAll(".fin-meta span");

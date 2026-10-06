@@ -15,8 +15,8 @@ Written as 48 kHz stereo PCM, which is what the renderer wants.
 import math, os, struct, wave
 
 SR = 48000
-DUR = 8.0
-HIT = 6.0          # the frame SOON appears on
+DUR = 22.0
+HIT = 18.4          # the frame SOON appears on
 BPM = 80
 
 
@@ -42,13 +42,13 @@ for i in range(n):
     k = int(t / beat)
     tb = t - k * beat
     if t < HIT - 0.2:
-        fade = min(1.0, t / 1.2) * max(0.0, 1.0 - max(0.0, t - 4.6) / 1.2)
+        fade = min(1.0, t / 1.2) * max(0.0, 1.0 - max(0.0, t - 17.0) / 1.2)
         f = 54.0 * math.exp(-tb * 7.0) + 32.0           # a pitch drop reads as weight
         s += 0.55 * fade * env(tb, 0.004, 0.16) * math.sin(2 * math.pi * f * tb)
 
     # -- the riser: two detuned tones climbing a fifth, kept under the pulse
-    if 2.4 < t < HIT:
-        u = (t - 2.4) / (HIT - 2.4)
+    if 12.0 < t < HIT:
+        u = (t - 12.0) / (HIT - 12.0)
         amp = 0.11 * u * u
         f = 180.0 * (1.0 + 0.5 * u * u)
         s += amp * (math.sin(2 * math.pi * f * t) + math.sin(2 * math.pi * f * 1.004 * t + 0.7)) * 0.5
@@ -77,7 +77,7 @@ for i in range(n - 1, d - 1, -1):
 peak = max(max(abs(v) for v in left), max(abs(v) for v in right)) or 1.0
 scale = 0.89 / peak
 
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bed.wav")
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.environ.get("BED", "bed.wav"))
 with wave.open(out, "wb") as w:
     w.setnchannels(2)
     w.setsampwidth(2)

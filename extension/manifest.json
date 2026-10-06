@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Xeet — Swap at the speed of X",
-  "version": "1.6.1",
+  "name": "Xeet \u2014 Swap at the speed of X",
+  "version": "1.8.0",
   "description": "Trade any token on X without leaving the feed. Non-custodial, ten chains, 0.5% per swap.",
   "icons": {
     "16": "icons/icon16.png",
@@ -45,7 +45,8 @@
     "https://bsc-rpc.publicnode.com/*",
     "https://avalanche-c-chain-rpc.publicnode.com/*",
     "https://api.mainnet.abs.xyz/*",
-    "https://rpc.mainnet.chain.robinhood.com/*"
+    "https://rpc.mainnet.chain.robinhood.com/*",
+    "https://api.hyperliquid.xyz/*"
   ],
   "content_scripts": [
     {
@@ -71,6 +72,7 @@
         "src/format.js",
         "src/panel-html.js",
         "src/wallet.js",
+        "src/card.js",
         "src/panel.js",
         "src/content.js"
       ],

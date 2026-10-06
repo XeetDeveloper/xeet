@@ -470,10 +470,15 @@ body::after {
   transition: color .15s ease, background .15s ease;
 }
 a.xlink:hover { color: var(--core); background: rgba(255, 255, 255, .07); }
+.topnav a.xlink + a.xlink, .pagefoot a.xlink + a.xlink { margin-left: -6px; }
 /* Both homes are flex rows with their own spacing, so the mark carries no
    margin of its own — it sits in the gap the row already keeps. */
-.topnav .xlink { margin-left: 0; margin-right: -4px; }
+/* A touch larger in the header than elsewhere: up there they sit beside a
+   solid white button and lose the staring contest at fifteen pixels. */
+.topnav .xlink { margin-left: 0; margin-right: -4px; width: 36px; height: 36px; }
+.topnav .xlink svg { width: 19px; height: 19px; }
 .xlink.foot { margin-left: 0; margin-right: -4px; }
+.marks { display: flex; align-items: center; gap: 6px; }
 /* The hero's copy stands alone under the address rather than beside a button,
    so it carries the weight the small ones borrow from their neighbours. The
    modifier is "big" and not "hero": the page already has a .hero section, and

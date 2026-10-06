@@ -167,11 +167,15 @@
     evm: (tx) => call("sendEvm", { id: (state.evm || {}).id, tx }),
   };
 
+  // Perps: the wallet signs a message rather than a transaction.
+  const signTyped = (typedData) =>
+    call("signTypedEvm", { id: (state.evm || {}).id, typedData }, 120000);
+
   const watchAsset = (opts) => call("watchAsset", Object.assign({ id: (state.evm || {}).id }, opts), 60000);
 
   g.XEET_WALLET = {
     state, restore, wallets, connect, forget, forChain, any, ensureChain, use, grant,
-    send, watchAsset,
+    send, signTyped, watchAsset,
     onChange: (fn) => listeners.add(fn),
   };
 })(window);

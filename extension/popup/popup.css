@@ -451,3 +451,17 @@ main::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .09); border-rad
 
 #forgetrow { margin-top: 8px; }
 #forget-all[data-armed="1"] { background: var(--paper); color: var(--void); border-color: var(--paper); }
+
+/* The trade-card button on a history row. Quiet until the row is hovered —
+   it is an afterthought to the trade, not a second verb on it. */
+.row.trade { position: relative; }
+.cardbtn {
+  flex: none; width: 30px; height: 30px; margin-left: 6px;
+  display: grid; place-items: center;
+  background: transparent; border: 1px solid transparent; border-radius: 9px;
+  color: var(--dim); cursor: pointer; opacity: 0; transition: opacity .12s ease, color .12s ease, border-color .12s ease;
+}
+.row.trade:hover .cardbtn { opacity: 1; }
+.cardbtn:hover { color: var(--paper); border-color: var(--line); background: rgba(255,255,255,.05); }
+.cardbtn.done { color: var(--paper); opacity: 1; }
+.cardbtn svg { width: 15px; height: 15px; }

@@ -27,6 +27,16 @@ STYLE = (" Monochrome: deep black, graphite and cold white only, no other colour
          "No text, no letters, no numbers, no logos, no interface, no people.")
 
 CARDS = {
+    # The art that sits on the right of a trade card. Monochrome on purpose:
+    # the colour of the outcome is painted over it at draw time, so one render
+    # serves the green card, the red one and the violet one.
+    "shards": "Sharp angular shards of polished black glass floating in a dark void, lit from one "
+              "side by a single cold white light, their edges catching thin bright highlights. "
+              "They hang in loose formation receding into darkness, largest in the upper right. "
+              "Deep blacks, graphite greys, cold white rim light, volumetric haze, shallow depth of "
+              "field, cinematic product-commercial lighting. The left half of the frame is empty "
+              "darkness. Monochrome, no colour. No text, no letters, no numbers, no logos, no people.",
+
     "solana": "A wide dark void. Three slender parallel bands of cold white light cut diagonally "
               "across the lower third like a slipstream, their edges soft and slightly out of focus, "
               "reflected in a black glass floor beneath them. A faint cool haze above." + STYLE,

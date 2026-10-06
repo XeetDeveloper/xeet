@@ -482,7 +482,37 @@
       st.textContent = s.status;
       col.append(amt, st);
 
-      li.append(fc, copy, col);
+      /* A card for any trade, not only the one that just happened: the day
+         somebody wants to show a win is rarely the day they made it. */
+      const card = document.createElement("button");
+      card.className = "cardbtn";
+      card.type = "button";
+      card.title = "Trade card";
+      card.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 14l4.5-4.5 4 4 3-3L21 15"/></svg>';
+      card.addEventListener("click", async (e) => {
+        e.stopPropagation();                      // the row itself opens the explorer
+        card.disabled = true;
+        try {
+          const blob = await window.XEET_CARD.drawCard({
+            side: s.side,
+            symbol: s.symbol,
+            chainName: (CHAINS[s.chain] || {}).name || s.chain,
+            inAmount: s.inAmount, inSymbol: s.inSymbol,
+            outAmount: s.outAmount, outSymbol: s.outSymbol,
+            usd: s.usd,
+            multiple: window.XEET_CARD.multipleFrom(list, s),
+          }, chrome.runtime.getURL("icons/icon128.png"),
+             chrome.runtime.getURL("assets/shards.jpg"));
+          const how = await window.XEET_CARD.deliver(
+            blob, `xeet-${(s.symbol || "trade").toLowerCase()}.png`);
+          card.classList.add("done");
+          card.title = how === "copied" ? "Copied — paste it in a post" : "Saved to downloads";
+          setTimeout(() => { card.classList.remove("done"); card.title = "Trade card"; }, 2000);
+        } catch { card.title = "Could not draw it"; }
+        card.disabled = false;
+      });
+
+      li.append(fc, copy, col, card);
       const chain = CHAINS[s.chain];
       if (chain && s.hash) li.addEventListener("click", () => chrome.tabs.create({ url: chain.explorer + s.hash }));
       host.appendChild(li);

@@ -19,6 +19,7 @@
 // script by the content scripts and the popup.
 import "./config.js";
 import * as turbo from "./turbo.js";
+import * as perps from "./perps.js";
 
 const { CHAINS, BY_DS, BY_GT, API, FEE, DEFAULTS } = self.XEET_CFG;
 
@@ -1251,7 +1252,7 @@ async function record(entry) {
  *
  * This is a literal, not the manifest's version: an old worker reading the new
  * manifest off disk would report the new number and prove nothing. */
-const BUILD = "1.6.1";
+const BUILD = "1.8.0";
 
 const HANDLERS = {
   // Not "build" — that name is already the swap builder further down, and an
@@ -1271,6 +1272,31 @@ const HANDLERS = {
   confirm: (m) => confirm(m.chain, m.hash),
   trending: (m) => trending(m.limit),
   holdings: () => holdings(),
+  /* ------------------------------------------------------------- perps */
+  /* Read-only halves answer from here; the signature itself happens in the
+     page, in the user's own wallet, and comes back to perpSubmit. */
+  perpMarket: (m) => perps.marketFor(m.symbol),
+  perpState: (m) => perps.accountState(m.address),
+  perpOrder: async (m) => {
+    const market = await perps.marketFor(m.symbol);
+    if (!market) throw new Error("no perp market for " + m.symbol);
+    if (!market.mid) throw new Error("no price for " + market.name);
+    // A market order, expressed the way the exchange wants it: an IOC limit a
+    // little through the book so it fills, with the slippage capped.
+    const slip = Math.min(Math.max(Number(m.slippagePct) || 1, 0.1), 5) / 100;
+    const px = market.mid * (m.isBuy ? 1 + slip : 1 - slip);
+    const notional = Number(m.usd) * Math.max(1, Number(m.leverage) || 1);
+    const size = notional / market.mid;
+    return perps.orderPayload({
+      assetIndex: market.index,
+      isBuy: !!m.isBuy,
+      price: perps.fmtPrice(px, market.szDecimals),
+      size: perps.fmtSize(size, market.szDecimals),
+      nonce: Date.now(),
+    });
+  },
+  perpSubmit: (m) => perps.submit({ action: m.action, nonce: m.nonce, signature: m.signature }),
+
   turboInfo: async () => ({
     build: BUILD,
     settings: await turbo.settings(),

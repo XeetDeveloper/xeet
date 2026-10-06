@@ -332,6 +332,19 @@ function nameOf(p) {
       return { hash };
     },
 
+    /* A perp order is not a transaction — it is a typed message the exchange
+       verifies off chain. Same wallet, same approval window, no gas. */
+    async signTypedEvm({ id, typedData }) {
+      const sel = pick(id);
+      if (sel.kind !== "evm") throw new Error("that wallet cannot sign typed data");
+      const from = sel.w.address;
+      const sig = await sel.w.provider.request({
+        method: "eth_signTypedData_v4",
+        params: [from, JSON.stringify(typedData)],
+      });
+      return { signature: sig, address: from };
+    },
+
     async watchAsset({ id, address, symbol, decimals, image }) {
       const sel = pick(id);
       if (sel.kind !== "evm") return { ok: false };
