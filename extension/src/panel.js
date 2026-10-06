@@ -1333,34 +1333,24 @@
     const t = session.token;
     const liq = Number(t && t.liquidity) || 0;
     const lim = await send({ type: "microLimits", liquidityUsd: liq }).catch(() => null);
+    // The answer arrives after an await, by which time the panel may have moved
+    // on to another token or drawn another strip. Both were happening: two
+    // identical rows, one of them priced for a coin no longer on screen.
     if (!lim || !lim.ok || !session || session.token !== t) return;
+    const stale = host.querySelector(".microstrip");
+    if (stale) stale.remove();
+
+    const usd = Math.min(lim.maxPosition, (settings.buyPresets && settings.buyPresets[0]) || 5);
+    const lev = session.microLev || 2;
 
     const row = document.createElement("div");
-    row.className = "perpstrip";
-
-    const label = document.createElement("span");
-    label.className = "perplbl";
-    label.textContent = "LEVERAGE · PAPER";
-    label.title = `This pool allows $${lim.maxPosition} per position at up to ${lim.maxLeverage}x. `
-      + `Moving its price 10% costs about $${lim.costToMove10}, and the whole book cannot pay more than that.`;
-
-    const lev = session.microLev || 2;
-    const levBtn = document.createElement("button");
-    levBtn.className = "perplev";
-    levBtn.type = "button";
-    levBtn.textContent = lev + "x";
-    levBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const steps = [2, 3, 5].filter((v) => v <= lim.maxLeverage);
-      session.microLev = steps[(steps.indexOf(lev) + 1) % steps.length];
-      perpStrip();
-    });
+    row.className = "microstrip";
 
     const mk = (isLong) => {
       const b = document.createElement("button");
-      b.className = "perpbtn " + (isLong ? "long" : "short");
+      b.className = "microbtn " + (isLong ? "long" : "short");
       b.type = "button";
-      b.textContent = isLong ? "LONG" : "SHORT";
+      b.innerHTML = `<b>${isLong ? "LONG" : "SHORT"}</b><span>$${usd}</span>`;
       b.addEventListener("click", (e) => {
         e.stopPropagation();
         microOpen(isLong, session.microLev || lev, lim);
@@ -1368,8 +1358,26 @@
       return b;
     };
 
-    row.append(label, levBtn, mk(true), mk(false));
-    host.appendChild(row);
+    // The leverage sits between the two sides, because it belongs to both and
+    // because that is the only place it cannot be mistaken for part of one.
+    const levBtn = document.createElement("button");
+    levBtn.className = "microlev";
+    levBtn.type = "button";
+    levBtn.innerHTML = `<b>${lev}x</b><span>PAPER</span>`;
+    levBtn.title = `This pool allows $${lim.maxPosition} per position at up to ${lim.maxLeverage}x. `
+      + `Moving its price 10% costs about $${lim.costToMove10}; the whole book cannot pay more than that. `
+      + `Positions are paper until the vault is live.`;
+    levBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const steps = [2, 3, 5].filter((v) => v <= lim.maxLeverage);
+      session.microLev = steps[(steps.indexOf(lev) + 1) % steps.length];
+      perpStrip();
+    });
+
+    row.append(mk(true), levBtn, mk(false));
+    // Above the sizes, not below them: this is a way to trade, not a footnote
+    // to the other one.
+    host.insertBefore(row, el.tiles);
   }
 
   async function microOpen(isLong, leverage, lim) {
