@@ -5,6 +5,7 @@
 # mint the vault settles in — and nothing else. Run it again with no validator
 # (or `./local/wire-extension.sh off`) to put them back.
 set -euo pipefail
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$0")/../.."
 
 STATE=vault-sol/local/state.json
@@ -43,4 +44,17 @@ else
 fi
 
 ./build.sh >/dev/null
-echo "built. In chrome://extensions press reload on Xeet, then hover a \$XEET post."
+
+# The wired build goes to the desktop and the repo copy is put back at once:
+# a config with 127.0.0.1 in it is one careless commit away from shipping.
+if [ "${1:-on}" != "off" ]; then
+  OUT="$HOME/Desktop/Xeet-$(node -p 'require("./extension/manifest.json").version')-preview"
+  rm -rf /tmp/xeet-preview && mkdir -p /tmp/xeet-preview
+  unzip -q -o dist/xeet-extension.zip -d /tmp/xeet-preview
+  rm -rf "$OUT" && mkdir -p "$OUT" && cp -R /tmp/xeet-preview/xeet/. "$OUT/"
+  "$SELF" off >/dev/null
+  echo "preview build: $OUT"
+  echo "In chrome://extensions press reload on it, then hover a \$XEET post."
+else
+  echo "built."
+fi
