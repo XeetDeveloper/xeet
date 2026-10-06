@@ -38,12 +38,13 @@ export const defund = ({ program = PROGRAM, owner, vault, treasury, to, mint, am
   data: s.cat(s.discriminator("defund"), s.u64le(amount)),
 });
 
-export const setMarket = ({ program = PROGRAM, owner, vault, market, token, maxMargin, maxNotional, maxLeverage, live }) => ({
+export const setMarket = ({ program = PROGRAM, owner, vault, market, token, maxMargin,
+  maxNotional, maxLeverage, payoutMult, live }) => ({
   programId: program,
   keys: [signer(owner), ro(vault), rw(market), ro(s.SYSTEM)],
   data: s.cat(
     s.discriminator("set_market"), s.key(token), s.u64le(maxMargin), s.u64le(maxNotional),
-    s.u8(maxLeverage), s.bool(live),
+    s.u8(maxLeverage), s.u8(payoutMult), s.bool(live),
   ),
 });
 
@@ -98,7 +99,8 @@ export const readMarket = (b) => ({
   openNotional: b.readBigUInt64LE(56),
   lastPriceAt: b.readBigInt64LE(64),
   maxLeverage: b[72],
-  live: !!b[73],
+  payoutMult: b[73],
+  live: !!b[74],
 });
 
 export const readPosition = (b) => ({
@@ -109,7 +111,8 @@ export const readPosition = (b) => ({
   openedAt: b.readBigInt64LE(96),
   id: b.readBigUInt64LE(104),
   leverage: b[112],
-  isLong: !!b[113],
+  payoutMult: b[113],
+  isLong: !!b[114],
 });
 
 /* What a position is worth, in the same arithmetic the program uses — this is
@@ -125,7 +128,7 @@ export function valueOf(pos, price, fundingBpsPerHour, now) {
   const payout = dead ? 0n : (() => {
     const net = BigInt(pos.margin) + pnl;
     if (net <= 0n) return 0n;
-    const cap = pos.margin * 5n;
+    const cap = pos.margin * BigInt(pos.payoutMult || 1);
     return net > cap ? cap : net;
   })();
   return { pnl, payout, liquidatable: dead, funding };

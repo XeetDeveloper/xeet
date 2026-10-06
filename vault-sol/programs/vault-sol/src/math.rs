@@ -46,8 +46,13 @@ pub fn payout(p: &Position, pnl: i128) -> u64 {
     if net <= 0 {
         return 0;
     }
-    let cap = (p.margin as u128).saturating_mul(PAYOUT_CAP as u128);
-    (net as u128).min(cap) as u64
+    (net as u128).min(promised(p) as u128) as u64
+}
+
+/// What the vault set aside for this position when it opened, and the most it
+/// can ever have to pay for it.
+pub fn promised(p: &Position) -> u64 {
+    p.margin.saturating_mul(p.payout_mult.max(1) as u64)
 }
 
 /// Where the position dies, as a price.

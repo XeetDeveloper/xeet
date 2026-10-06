@@ -12,6 +12,9 @@ rust-version = "1.89.0"
 overflow-checks = true
 lto = "fat"
 codegen-units = 1
+opt-level = "z"
+panic = "abort"
+strip = true
 [profile.release.build-override]
 opt-level = 3
 incremental = false

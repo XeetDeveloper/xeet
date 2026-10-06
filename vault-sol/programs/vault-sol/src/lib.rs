@@ -17,8 +17,9 @@ declare_id!("EHwwa3q9WQd3s5NzWvUZjk83zuCyApDbXep6DPEjyMzx");
  * counterparty to every position in it.
  *
  * The whole product is three fences and an escape hatch:
- *   - a position's payout is capped at five times its margin, so the house's
- *     liability is a number rather than a hope;
+ *   - a position's payout is capped at a multiple of its margin, set per
+ *     market, so the house's liability is a number rather than a hope — and a
+ *     vault that cannot cover 5x says 3x instead of refusing the trade;
  *   - margin per position and open notional per coin are capped, both set
  *     from the pool's own depth;
  *   - every open position is pre-funded — the vault refuses to open one it
@@ -52,15 +53,19 @@ pub mod vault_sol {
         instructions::handle_defund(ctx, amount)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn set_market(
         ctx: Context<SetMarket>,
         token: Pubkey,
         max_margin: u64,
         max_notional: u64,
         max_leverage: u8,
+        payout_mult: u8,
         live: bool,
     ) -> Result<()> {
-        instructions::handle_set_market(ctx, token, max_margin, max_notional, max_leverage, live)
+        instructions::handle_set_market(
+            ctx, token, max_margin, max_notional, max_leverage, payout_mult, live,
+        )
     }
 
     pub fn set_config(

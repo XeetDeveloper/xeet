@@ -32,4 +32,6 @@ pub enum XeetError {
     Overflow,
     #[msg("the position id is not the next one")]
     WrongId,
+    #[msg("the payout multiple is outside what the program allows")]
+    BadPayoutMult,
 }

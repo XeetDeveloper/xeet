@@ -71,6 +71,7 @@ async function open(isLong, usd, leverage) {
   console.log(`  entry      $${show(pos.entry)}  (${price.pools} pools, $${Math.round(price.liquidity).toLocaleString()} deep)`);
   const move = isLong ? 1 - 0.9 / leverage : 1 + 0.9 / leverage;
   console.log(`  liquidated near $${(Number(pos.entry) / 1e18 * move).toPrecision(4)}`);
+  console.log(`  most it can pay  ${money(pos.margin * BigInt(pos.payoutMult))} (${pos.payoutMult}x the margin)`);
   console.log(`  tx         ${sig}`);
 }
 

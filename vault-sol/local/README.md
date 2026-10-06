@@ -2,11 +2,28 @@
 
 ```bash
 ./local/run.sh                      # validator + price service + the whole setup
-node local/trade.mjs long 30 2      # $30 of margin, 2x, long $XEET
+node local/trade.mjs long 25 2      # $25 of margin, 2x, long $XEET
 node local/trade.mjs list
 node local/trade.mjs close 1
 ./local/run.sh stop
 ```
+
+The default setup is a $60 vault and a $25 ceiling per position, which is the
+smallest thing worth running. `HOUSE_CAPITAL`, `MAX_MARGIN`, `MAX_LEVERAGE`
+and `PAYOUT_MULT` change it.
+
+## The ceiling, and why $60 cannot promise 5x
+
+The vault refuses to open a position it could not pay in full, so the most a
+position may win is a number the house has actually set aside. On a $25
+position a 5x ceiling means $125 promised, and a vault holding $60 plus that
+$25 of margin has $85. The honest answer is a lower ceiling rather than a
+refused trade, so the multiple is set per market: with $60 behind it, this one
+pays up to **3x the margin** — your $25 back plus $50, which is $XEET
+doubling at 2x. Put more in and it rises.
+
+A position keeps the ceiling it was opened under; changing a market's cap
+never reaches back into a trade somebody already took.
 
 ## What this costs: nothing, and there is nowhere to send money
 
@@ -28,15 +45,16 @@ node local/trade.mjs close 1
 A whole trade, as it actually ran here:
 
 ```
-LONG #2 open
-  margin     $29.94 (of $30.00, the rest was the fee)
-  leverage   2x  →  $59.88 of exposure
-  entry      $0.00002176  (1 pools, $13,678 deep)
-  liquidated near $0.00001197
-… the coin runs 40% …
-#2  LONG  $29.94  2x  entry $0.00002176  +$23.94 → $53.88
-closed #2 at $0.00003046 — $53.88 back
-you $1023.82 · vault $4976.18
+LONG #1 open
+  margin     $24.95 (of $25.00, the rest was the fee)
+  leverage   2x  →  $49.90 of exposure
+  entry      $0.00002279  (1 pools, $14,046 deep)
+  liquidated near $0.00001253
+  most it can pay  $74.85 (3x the margin)
+… the coin runs 30% …
+#1  LONG  $24.95  2x  entry $0.00002279  +$12.04 → $36.99
+closed #1 at $0.00002829 — $36.99 back
+you $111.99 · vault $48.01
 ```
 
 ## Testing a move the market will not give you
@@ -61,13 +79,27 @@ prices), and **you** (trades). On mainnet those first two must not be the same
 key: the operator's lives on a server because it signs every minute, and the
 owner's moves the money.
 
-## If you ever want it on mainnet
+## One person cannot be both sides of a bet
 
-- **~4.8 SOL** of rent to deploy a 343KB program, reclaimable by closing it.
-- **~$120 of USDC** in the vault per concurrent $30 position: the payout is
-  capped at five times the margin, and the vault refuses to open a position it
-  could not pay in full — so $30 of yours plus $120 of the house's backs one.
-- The caps here are set for a laptop ($50 a position). On the live $XEET pool
-  — about $13.7K deep — the honest cap is **$25 a position**, because moving
-  that pool ten percent costs around $334 and the book must never be able to
-  pay more than that.
+Worth saying plainly, because the mechanics work so well that it is easy to
+forget: when the same person funds the vault and takes the position, the
+money moves from one of their pockets to the other. The $60 and the $25 are
+both yours, and whatever the position wins the vault loses, minus the fee. It
+is a faithful dress rehearsal — real program, real price, real transactions —
+and it is not a bet.
+
+A real 2x long on a coin like this, for one person, means borrowing: put up
+collateral on a lending protocol, borrow the second $25, and buy $50 of the
+coin spot. No program and no deploy, and the leverage is real because the
+lender is somebody else.
+
+## If you ever want the vault itself on mainnet
+
+- **~2.1 SOL** of rent with `--max-len` at the program's exact size, or ~4.3
+  with room to upgrade. It is a deposit, not a cost: `solana program close`
+  gives it back.
+- Enough USDC behind each position to honour its ceiling — $50 of house money
+  per $25 position at 3x.
+- The caps here are a laptop's. On the live $XEET pool, about $14K deep,
+  **$25 a position** is also the honest mainnet cap: moving that pool ten
+  percent costs around $340, and the book must never be able to pay more.

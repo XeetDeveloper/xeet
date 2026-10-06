@@ -12,9 +12,14 @@ pub const MARKET_SEED: &[u8] = b"market";
 #[constant]
 pub const POSITION_SEED: &[u8] = b"position";
 
-/// A position can win this many times its margin and no more. The house's
-/// liability is a number rather than a hope, and it is set aside at open.
-pub const PAYOUT_CAP: u64 = 5;
+/// How much a position may be paid, as a multiple of its margin — set per
+/// market, because the ceiling is really two questions at once: how far the
+/// coin could plausibly run, and how much the house can actually cover. A
+/// vault with $60 in it cannot promise 5x on a $25 position however much it
+/// would like to, and the honest answer is a lower ceiling rather than a
+/// refused trade.
+pub const MIN_PAYOUT_MULT: u8 = 2;
+pub const MAX_PAYOUT_MULT: u8 = 10;
 
 /// How much of the margin must survive: liquidated once 90% of it is gone.
 pub const MAINTENANCE_BPS: u64 = 1_000;

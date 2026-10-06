@@ -213,10 +213,15 @@ impl Bench {
     }
 
     fn set_market(&mut self, max_margin: u64, max_notional: u64, max_leverage: u8, live: bool) {
+        self.set_market_with(max_margin, max_notional, max_leverage, 5, live);
+    }
+
+    fn set_market_with(&mut self, max_margin: u64, max_notional: u64, max_leverage: u8,
+                       payout_mult: u8, live: bool) {
         let ix = Instruction::new_with_bytes(
             program_id(),
             &vault_sol::instruction::SetMarket {
-                token: self.coin, max_margin, max_notional, max_leverage, live,
+                token: self.coin, max_margin, max_notional, max_leverage, payout_mult, live,
             }.data(),
             vault_sol::accounts::SetMarket {
                 owner: self.house.pubkey(), vault: self.vault, market: self.market,
@@ -673,4 +678,65 @@ fn the_signed_message_matches_the_price_service() {
 bc07c56e60ad3d3f177382eac6548fba1fd32cfd90ca02b3e7cfa185fdce739800882f795d030000000000000000000000\
 f1536500000000"
     );
+}
+
+/* The constraint a real $60 vault runs into, and the answer to it. */
+#[test]
+fn a_small_vault_lowers_the_ceiling_instead_of_refusing_the_trade() {
+    let mut b = Bench::new();
+    b.fund(60 * USD);
+    let (alice, usdc) = b.trader(1_000 * USD);
+
+    // At 5x the promise on a $25 position is $125 and the vault holds $85.
+    b.set_market_with(25 * USD, 2_500 * USD, 5, 5, true);
+    assert!(b.open(&alice, usdc, 25 * USD, 2, true, P1).is_err(),
+        "a vault that cannot cover the promise must not take the position");
+
+    // At 3x the promise is $75, which $60 plus the margin covers.
+    b.warp(1);                      // a different blockhash, or it is the same transaction
+    b.set_market_with(25 * USD, 2_500 * USD, 5, 3, true);
+    let id = b.open(&alice, usdc, 25 * USD, 2, true, P1).expect("$60 backs this one");
+
+    let before = balance_of(&b.svm, &usdc);
+    b.settle(&alice, &alice, usdc, id, P1 * 10, false).expect("close into the ceiling");
+    let gained = balance_of(&b.svm, &usdc) - before;
+    // the ceiling is three times the margin, of which one is the margin back
+    assert!(gained <= 75 * USD && gained > 74 * USD, "paid {}", gained);
+    assert_eq!(b.vault_state().liabilities, 0);
+}
+
+/* A market whose ceiling is raised later must not reach back into positions
+   that were opened under the old one — in either direction. */
+#[test]
+fn a_position_keeps_the_ceiling_it_was_opened_under() {
+    let mut b = Bench::ready();
+    b.set_market_with(25 * USD, 2_500 * USD, 5, 2, true);
+    let (alice, usdc) = b.trader(1_000 * USD);
+    let id = b.open(&alice, usdc, 10 * USD, 2, true, P1).expect("open at 2x payout");
+
+    b.set_market_with(25 * USD, 2_500 * USD, 5, 10, true);   // raised afterwards
+    let before = balance_of(&b.svm, &usdc);
+    b.settle(&alice, &alice, usdc, id, P1 * 50, false).expect("close");
+    let gained = balance_of(&b.svm, &usdc) - before;
+    assert!(gained <= 20 * USD, "the old ceiling still applies, got {}", gained);
+}
+
+#[test]
+fn the_payout_multiple_has_bounds() {
+    let mut b = Bench::new();
+    let house = b.house.insecure_clone();
+    for bad in [1u8, 11u8] {
+        let ix = Instruction::new_with_bytes(
+            program_id(),
+            &vault_sol::instruction::SetMarket {
+                token: b.coin, max_margin: 25 * USD, max_notional: 2_500 * USD,
+                max_leverage: 5, payout_mult: bad, live: true,
+            }.data(),
+            vault_sol::accounts::SetMarket {
+                owner: b.house.pubkey(), vault: b.vault, market: b.market,
+                system_program: system_program::ID,
+            }.to_account_metas(None),
+        );
+        assert!(b.send(&[ix], &[&house]).is_err(), "{} is not a payout multiple", bad);
+    }
 }

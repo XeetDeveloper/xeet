@@ -1,7 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{
-    transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
-};
+use anchor_spl::token::{transfer_checked, Mint, Token, TokenAccount, TransferChecked};
 
 use crate::constants::*;
 use crate::error::XeetError;
@@ -17,13 +15,13 @@ pub struct Initialize<'info> {
     pub owner: Signer<'info>,
     #[account(init, payer = owner, space = 8 + Vault::INIT_SPACE, seeds = [VAULT_SEED], bump)]
     pub vault: Account<'info, Vault>,
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub mint: Account<'info, Mint>,
     #[account(
         init, payer = owner, seeds = [TREASURY_SEED], bump,
-        token::mint = mint, token::authority = vault, token::token_program = token_program,
+        token::mint = mint, token::authority = vault, 
     )]
-    pub treasury: InterfaceAccount<'info, TokenAccount>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub treasury: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
@@ -58,12 +56,12 @@ pub struct Fund<'info> {
     #[account(seeds = [VAULT_SEED], bump = vault.bump)]
     pub vault: Account<'info, Vault>,
     #[account(mut, seeds = [TREASURY_SEED], bump = vault.treasury_bump)]
-    pub treasury: InterfaceAccount<'info, TokenAccount>,
+    pub treasury: Account<'info, TokenAccount>,
     #[account(mut, token::mint = vault.mint)]
-    pub from: InterfaceAccount<'info, TokenAccount>,
+    pub from: Account<'info, TokenAccount>,
     #[account(address = vault.mint)]
-    pub mint: InterfaceAccount<'info, Mint>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
 }
 
 pub fn handle_fund(ctx: Context<Fund>, amount: u64) -> Result<()> {
@@ -88,12 +86,12 @@ pub struct Defund<'info> {
     #[account(seeds = [VAULT_SEED], bump = vault.bump, has_one = owner)]
     pub vault: Account<'info, Vault>,
     #[account(mut, seeds = [TREASURY_SEED], bump = vault.treasury_bump)]
-    pub treasury: InterfaceAccount<'info, TokenAccount>,
+    pub treasury: Account<'info, TokenAccount>,
     #[account(mut, token::mint = vault.mint)]
-    pub to: InterfaceAccount<'info, TokenAccount>,
+    pub to: Account<'info, TokenAccount>,
     #[account(address = vault.mint)]
-    pub mint: InterfaceAccount<'info, Mint>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
 }
 
 /* The house may take out the surplus and never a cent more: every open
@@ -128,15 +126,22 @@ pub struct SetMarket<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_set_market(
     ctx: Context<SetMarket>,
     token: Pubkey,
     max_margin: u64,
     max_notional: u64,
     max_leverage: u8,
+    payout_mult: u8,
     live: bool,
 ) -> Result<()> {
+    require!(
+        (MIN_PAYOUT_MULT..=MAX_PAYOUT_MULT).contains(&payout_mult),
+        XeetError::BadPayoutMult
+    );
     let m = &mut ctx.accounts.market;
+    m.payout_mult = payout_mult;
     m.token = token;
     m.max_margin = max_margin;
     m.max_notional = max_notional;
@@ -202,14 +207,14 @@ pub struct Open<'info> {
     )]
     pub position: Account<'info, Position>,
     #[account(mut, token::mint = vault.mint, token::authority = trader)]
-    pub from: InterfaceAccount<'info, TokenAccount>,
+    pub from: Account<'info, TokenAccount>,
     #[account(mut, seeds = [TREASURY_SEED], bump = vault.treasury_bump)]
-    pub treasury: InterfaceAccount<'info, TokenAccount>,
+    pub treasury: Account<'info, TokenAccount>,
     #[account(address = vault.mint)]
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub mint: Account<'info, Mint>,
     /// CHECK: the instructions sysvar, checked by address inside price::verify
     pub instructions: UncheckedAccount<'info>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
@@ -263,7 +268,9 @@ pub fn handle_open(
 
     // Pre-funded or not opened: the vault must be able to pay this position's
     // best case the moment it exists.
-    let promise = net.checked_mul(PAYOUT_CAP).ok_or(XeetError::Overflow)?;
+    let promise = net
+        .checked_mul(market.payout_mult.max(1) as u64)
+        .ok_or(XeetError::Overflow)?;
 
     transfer_checked(
         CpiContext::new(
@@ -304,6 +311,7 @@ pub fn handle_open(
     p.opened_at = now;
     p.id = id;
     p.leverage = leverage;
+    p.payout_mult = ctx.accounts.market.payout_mult;
     p.is_long = is_long;
     p.bump = ctx.bumps.position;
     Ok(())
@@ -326,14 +334,14 @@ pub struct Settle<'info> {
     #[account(mut, close = trader, seeds = [POSITION_SEED, &position.id.to_le_bytes()], bump = position.bump)]
     pub position: Account<'info, Position>,
     #[account(mut, seeds = [TREASURY_SEED], bump = vault.treasury_bump)]
-    pub treasury: InterfaceAccount<'info, TokenAccount>,
+    pub treasury: Account<'info, TokenAccount>,
     #[account(mut, token::mint = vault.mint, token::authority = trader)]
-    pub to: InterfaceAccount<'info, TokenAccount>,
+    pub to: Account<'info, TokenAccount>,
     #[account(address = vault.mint)]
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub mint: Account<'info, Mint>,
     /// CHECK: the instructions sysvar, checked by address inside price::verify
     pub instructions: UncheckedAccount<'info>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub token_program: Program<'info, Token>,
 }
 
 pub fn handle_close(ctx: Context<Settle>, price_value: u128, price_at: i64) -> Result<()> {
@@ -369,7 +377,7 @@ fn settle(ctx: Context<Settle>, price_value: u128, price_at: i64, must_be_dead: 
     let owed = if dead { 0 } else { math::payout(pos, pnl) };
 
     let notional = math::notional(pos);
-    let promise = pos.margin.saturating_mul(PAYOUT_CAP);
+    let promise = math::promised(pos);
 
     ctx.accounts.market.open_notional = ctx.accounts.market.open_notional.saturating_sub(notional);
     ctx.accounts.market.last_price_at = ctx.accounts.market.last_price_at.max(price_at);
@@ -401,12 +409,12 @@ pub struct CloseStale<'info> {
     #[account(mut, close = trader, seeds = [POSITION_SEED, &position.id.to_le_bytes()], bump = position.bump)]
     pub position: Account<'info, Position>,
     #[account(mut, seeds = [TREASURY_SEED], bump = vault.treasury_bump)]
-    pub treasury: InterfaceAccount<'info, TokenAccount>,
+    pub treasury: Account<'info, TokenAccount>,
     #[account(mut, token::mint = vault.mint, token::authority = trader)]
-    pub to: InterfaceAccount<'info, TokenAccount>,
+    pub to: Account<'info, TokenAccount>,
     #[account(address = vault.mint)]
-    pub mint: InterfaceAccount<'info, Mint>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
 }
 
 pub fn handle_close_stale(ctx: Context<CloseStale>) -> Result<()> {
@@ -417,7 +425,7 @@ pub fn handle_close_stale(ctx: Context<CloseStale>) -> Result<()> {
 
     let margin = pos.margin;
     let notional = math::notional(pos);
-    let promise = margin.saturating_mul(PAYOUT_CAP);
+    let promise = math::promised(pos);
 
     ctx.accounts.market.open_notional = ctx.accounts.market.open_notional.saturating_sub(notional);
     ctx.accounts.vault.liabilities = ctx.accounts.vault.liabilities.saturating_sub(promise);
@@ -464,10 +472,10 @@ pub fn handle_poke(ctx: Context<Poke>, price_value: u128, price_at: i64) -> Resu
 /* ----------------------------------------------------------------- inside */
 
 fn pay<'info>(
-    token_program: &Interface<'info, TokenInterface>,
-    treasury: &InterfaceAccount<'info, TokenAccount>,
-    to: &InterfaceAccount<'info, TokenAccount>,
-    mint: &InterfaceAccount<'info, Mint>,
+    token_program: &Program<'info, Token>,
+    treasury: &Account<'info, TokenAccount>,
+    to: &Account<'info, TokenAccount>,
+    mint: &Account<'info, Mint>,
     vault: &Account<'info, Vault>,
     amount: u64,
 ) -> Result<()> {

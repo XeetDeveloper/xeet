@@ -33,6 +33,8 @@ pub struct Market {
     /// exit measures its silence from.
     pub last_price_at: i64,
     pub max_leverage: u8,
+    /// The most this market pays, as a multiple of margin.
+    pub payout_mult: u8,
     pub live: bool,
     pub bump: u8,
 }
@@ -47,6 +49,10 @@ pub struct Position {
     pub opened_at: i64,
     pub id: u64,
     pub leverage: u8,
+    /// Copied from the market at open. The ceiling a position was opened
+    /// under is the ceiling it settles under — changing a market's cap must
+    /// never reach back into a position somebody already took.
+    pub payout_mult: u8,
     pub is_long: bool,
     pub bump: u8,
 }

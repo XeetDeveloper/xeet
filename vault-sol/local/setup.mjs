@@ -17,10 +17,10 @@ import * as v from "./vault.mjs";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RPC = process.env.RPC || "http://127.0.0.1:8899";
 const COIN = process.env.COIN || "6HFJ5sxVoEtczr9siAUeGssmpfhQSS3pEoBcCycUpump";  // $XEET
-const HOUSE_CAPITAL = Number(process.env.HOUSE_CAPITAL || 5000);  // dollars the house puts up
-const TRADER_USD = Number(process.env.TRADER_USD || 1000);        // dollars to trade with
-const MAX_MARGIN = Number(process.env.MAX_MARGIN || 50);          // per position
-const MAX_NOTIONAL = Number(process.env.MAX_NOTIONAL || 2500);    // across the market
+const HOUSE_CAPITAL = Number(process.env.HOUSE_CAPITAL || 60);    // dollars the house puts up
+const TRADER_USD = Number(process.env.TRADER_USD || 100);         // dollars to trade with
+const MAX_MARGIN = Number(process.env.MAX_MARGIN || 25);          // per position
+const MAX_NOTIONAL = Number(process.env.MAX_NOTIONAL || 500);     // across the market
 const MAX_LEVERAGE = Number(process.env.MAX_LEVERAGE || 5);
 const USD = 1_000_000n;                                           // six decimals, like USDC
 
@@ -99,14 +99,22 @@ const main = async () => {
   })], k.house.pubkey, [k.house]);
   console.log("capital  in:", "$" + HOUSE_CAPITAL);
 
+  /* The ceiling the house can actually honour. The vault must be able to pay
+     margin x multiple on every open position at once, and it holds its own
+     capital plus the margins — so with $60 behind a $25 position the honest
+     answer is 3x, not the 5x a bigger vault could promise. */
+  const payoutMult = Number(process.env.PAYOUT_MULT
+    || Math.max(2, Math.min(10, Math.floor((HOUSE_CAPITAL + MAX_MARGIN) / MAX_MARGIN))));
+
   const market = p.market(COIN);
   await s.send(call, [v.setMarket({
     owner: k.house.pubkey, vault: p.vault, market, token: COIN,
     maxMargin: BigInt(MAX_MARGIN) * USD, maxNotional: BigInt(MAX_NOTIONAL) * USD,
-    maxLeverage: MAX_LEVERAGE, live: true,
+    maxLeverage: MAX_LEVERAGE, payoutMult, live: true,
   })], k.house.pubkey, [k.house]);
   console.log("market   live for", COIN);
   console.log("         up to $" + MAX_MARGIN + " a position, " + MAX_LEVERAGE + "x, $" + MAX_NOTIONAL + " of book");
+  console.log("         profit capped at " + payoutMult + "x margin — the most $" + HOUSE_CAPITAL + " can honour");
 
   fs.writeFileSync(statePath, JSON.stringify({
     rpc: RPC, program: v.PROGRAM, coin: COIN,
@@ -114,7 +122,7 @@ const main = async () => {
     mint: mint.pubkey, houseUsd: houseUsd.pubkey, traderUsd: traderUsd.pubkey,
     house: k.house.pubkey, operator: k.operator.pubkey, trader: k.trader.pubkey,
   }, null, 2));
-  console.log("\nready. Open one with:  node local/trade.mjs long 30 2");
+  console.log("\nready. Open one with:  node local/trade.mjs long 25 2");
 };
 
 main().catch((e) => { console.error("setup failed:", e.message); process.exit(1); });
