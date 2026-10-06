@@ -48,7 +48,10 @@ pub fn verify(
     now: i64,
 ) -> Result<Attested> {
     require!(value > 0, XeetError::ZeroPrice);
-    require!(at + MAX_PRICE_AGE >= now && at <= now + 5, XeetError::StalePrice);
+    require!(
+        at + MAX_PRICE_AGE >= now && at <= now + MAX_PRICE_SKEW,
+        XeetError::StalePrice
+    );
     require_keys_eq!(*ix_sysvar.key, IX_SYSVAR_ID, XeetError::BadSignature);
 
     let want = message_for(vault_key, token, value, at);

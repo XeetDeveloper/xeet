@@ -183,6 +183,19 @@
     price: "https://xeet.click/api/price",          // the operator's signing service
   };
 
+  /* The same venue on Solana, where the coins the panel actually sees live.
+     `rpc`, `mint` and `vault` are filled in by whichever deployment is being
+     used — vault-sol/local/wire-extension.sh writes the local one in, which is
+     how a laptop run is driven from the panel itself. Empty means not live,
+     and the panel says so rather than pretending. */
+  const SVAULT = {
+    chain: "solana",
+    program: "EHwwa3q9WQd3s5NzWvUZjk83zuCyApDbXep6DPEjyMzx",
+    rpc: "",                                 /* local-rpc */
+    mint: "",                                /* local-mint */
+    price: "https://xeet.click/api/price",   /* local-price */
+  };
+
   const DEFAULTS = {
     on: true,
     slippageBps: 100,          // 1%
@@ -213,5 +226,5 @@
     goplus: "https://api.gopluslabs.io/api/v1",
   };
 
-  g.XEET_CFG = { FEE, CHAINS, BY_DS, BY_GT, DEFAULTS, API, VAULT };
+  g.XEET_CFG = { FEE, CHAINS, BY_DS, BY_GT, DEFAULTS, API, VAULT, SVAULT };
 })(typeof self !== "undefined" ? self : window);

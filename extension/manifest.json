@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Xeet \u2014 Swap at the speed of X",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "description": "Trade any token on X without leaving the feed. Non-custodial, ten chains, 0.5% per swap.",
   "icons": {
     "16": "icons/icon16.png",
@@ -46,7 +46,9 @@
     "https://avalanche-c-chain-rpc.publicnode.com/*",
     "https://api.mainnet.abs.xyz/*",
     "https://rpc.mainnet.chain.robinhood.com/*",
-    "https://api.hyperliquid.xyz/*"
+    "https://api.hyperliquid.xyz/*",
+    "http://127.0.0.1:8899/*",
+    "http://127.0.0.1:8910/*"
   ],
   "content_scripts": [
     {

@@ -21,8 +21,9 @@ import "./config.js";
 import * as turbo from "./turbo.js";
 import * as perps from "./perps.js";
 import * as vault from "./vault.js";
+import * as sv from "./svault.js";
 
-const { CHAINS, BY_DS, BY_GT, API, FEE, DEFAULTS, VAULT } = self.XEET_CFG;
+const { CHAINS, BY_DS, BY_GT, API, FEE, DEFAULTS, VAULT, SVAULT } = self.XEET_CFG;
 
 /* --------------------------------------------------------------- caching */
 /* A service worker is evicted after ~30s idle, so this cache is a burst cache
@@ -1223,6 +1224,177 @@ async function turboHoldings(kind) {
   return { rows, total: rows.reduce((n, r) => n + (r.usd || 0), 0), account: acc.address };
 }
 
+/* ----------------------------------------------------- the Solana vault */
+
+const svRpc = () => SVAULT.rpc || CHAINS.solana.rpc;
+
+async function svCall(method, params) {
+  const r = await fetch(svRpc(), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  });
+  const out = await r.json();
+  if (out.error) throw new Error(out.error.message || method + " failed");
+  return out.result;
+}
+
+async function svAccount(pubkey) {
+  const r = await svCall("getAccountInfo", [pubkey, { encoding: "base64", commitment: "confirmed" }]);
+  if (!r || !r.value) return null;
+  const raw = atob(r.value.data[0]);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  return bytes;
+}
+
+const b64 = (bytes) => {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(s);
+};
+
+/* A price the program will accept, signed by the operator and good for two
+   minutes — fetched per use, because a cached one is a failed transaction. */
+async function svPrice(address, vaultKey) {
+  const url = `${SVAULT.price}?chain=solana&address=${encodeURIComponent(address)}`
+    + `&vault=${vaultKey}&scheme=solana`;
+  const r = await fetch(url, { cache: "no-store" });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.error || "no price for this coin right now");
+  return body;
+}
+
+async function svaultMarket(address) {
+  if (!SVAULT.mint) return { configured: false };
+  const a = sv.addresses(SVAULT.program);
+  const acc = await turbo.account("svm");
+  const [vaultBytes, marketBytes, treasuryBytes, mine] = await Promise.all([
+    svAccount(a.vault),
+    svAccount(a.market(address)),
+    svAccount(a.treasury),
+    acc ? svAccount(sv.ata(acc.address, SVAULT.mint)) : Promise.resolve(null),
+  ]);
+  if (!vaultBytes || !marketBytes) return { configured: true, live: false };
+
+  const v = sv.readVault(vaultBytes);
+  const m = sv.readMarket(marketBytes);
+  const held = treasuryBytes ? sv.tokenAmount(treasuryBytes) : 0n;
+  return {
+    configured: true,
+    live: m.live && !v.paused,
+    stable: "USDC",
+    chainName: "Solana",
+    // Said on the face whenever the venue is a validator on this machine, so
+    // a screen recording of it can never pass for mainnet by accident.
+    preview: /\/\/(127\.0\.0\.1|localhost)[:/]/.test(svRpc()),
+    maxMargin: Number(m.maxMargin) / 1e6,
+    maxLeverage: m.maxLeverage,
+    payoutMult: m.payoutMult,
+    roomNotional: Number(m.maxNotional - m.openNotional) / 1e6,
+    houseFree: Number(held - v.liabilities) / 1e6,
+    balance: mine ? Number(sv.tokenAmount(mine)) / 1e6 : 0,
+    account: acc ? acc.address : null,
+  };
+}
+
+async function svaultOpen({ address, symbol, usd, leverage, isLong }) {
+  if (!SVAULT.mint) throw new Error("the vault is not live yet");
+  const acc = await turbo.account("svm");
+  if (!acc) throw new Error("no Solana trading account");
+
+  const a = sv.addresses(SVAULT.program);
+  const from = sv.ata(acc.address, SVAULT.mint);
+  const [vaultBytes, mine] = await Promise.all([svAccount(a.vault), svAccount(from)]);
+  if (!vaultBytes) throw new Error("the vault is not live yet");
+  const v = sv.readVault(vaultBytes);
+
+  const margin = BigInt(Math.round(Number(usd) * 1e6));
+  const have = mine ? sv.tokenAmount(mine) : 0n;
+  if (have < margin) {
+    throw new Error(`the trading account holds $${(Number(have) / 1e6).toFixed(2)} — fund it to trade`);
+  }
+
+  const price = await svPrice(address, a.vault);
+  const id = Number(v.nextId);
+  const ixs = [
+    sv.ed25519Ix(price.pubkey, price.signature, price.message),
+    sv.openIx({
+      program: SVAULT.program, trader: acc.address, vault: a.vault,
+      market: a.market(address), position: a.position(id), from, treasury: a.treasury,
+      mint: SVAULT.mint, id, token: address, margin, leverage, isLong,
+      price: BigInt(price.value), at: price.at,
+    }),
+  ];
+  // Finalized, not confirmed: the send path's own preflight runs at the
+  // stricter commitment, and a blockhash it has not finalised yet comes back
+  // as "Blockhash not found" rather than as anything useful.
+  const { blockhash } = (await svCall("getLatestBlockhash", [{ commitment: "finalized" }])).value;
+  const tx = sv.unsignedTx(acc.address, ixs, blockhash);
+  const { hash } = await turbo.signAndSend(b64(tx), svRpc(), Number(usd));
+
+  const { svPositions: kept = [] } = await chrome.storage.local.get({ svPositions: [] });
+  kept.unshift({ id, address, symbol, at: Date.now() });
+  await chrome.storage.local.set({ svPositions: kept.slice(0, 50) });
+  return { id, hash, price: price.price, preview: /\/\/(127\.0\.0\.1|localhost)[:/]/.test(svRpc()) };
+}
+
+async function svaultList(address) {
+  if (!SVAULT.mint) return [];
+  const a = sv.addresses(SVAULT.program);
+  const { svPositions: kept = [] } = await chrome.storage.local.get({ svPositions: [] });
+  const mine = address ? kept.filter((k) => k.address === address) : kept;
+  if (!mine.length) return [];
+
+  const vaultBytes = await svAccount(a.vault);
+  const v = vaultBytes ? sv.readVault(vaultBytes) : null;
+  const now = Math.floor(Date.now() / 1000);
+  const out = [];
+  for (const k of mine.slice(0, 10)) {
+    const bytes = await svAccount(a.position(k.id)).catch(() => null);
+    if (!bytes) continue;                      // closed positions are deleted
+    const pos = sv.readPosition(bytes);
+    let value = null;
+    try {
+      const price = await svPrice(k.address, a.vault);
+      value = sv.valueOf(pos, BigInt(price.value), v ? v.fundingBpsPerHour : 1, now);
+    } catch { /* a position with no price is still a position */ }
+    out.push({
+      id: k.id, address: k.address, symbol: k.symbol,
+      margin: Number(pos.margin) / 1e6, leverage: pos.leverage, isLong: pos.isLong,
+      payoutMult: pos.payoutMult,
+      pnl: value ? Number(value.pnl) / 1e6 : null,
+      payout: value ? Number(value.payout) / 1e6 : null,
+      liquidatable: value ? value.liquidatable : false,
+    });
+  }
+  return out;
+}
+
+async function svaultClose({ id, address }) {
+  const acc = await turbo.account("svm");
+  if (!acc) throw new Error("no Solana trading account");
+  const a = sv.addresses(SVAULT.program);
+  const price = await svPrice(address, a.vault);
+  const ixs = [
+    sv.ed25519Ix(price.pubkey, price.signature, price.message),
+    sv.closeIx({
+      program: SVAULT.program, trader: acc.address, vault: a.vault,
+      market: a.market(address), position: a.position(id), treasury: a.treasury,
+      to: sv.ata(acc.address, SVAULT.mint), mint: SVAULT.mint,
+      price: BigInt(price.value), at: price.at,
+    }),
+  ];
+  // Finalized, not confirmed: the send path's own preflight runs at the
+  // stricter commitment, and a blockhash it has not finalised yet comes back
+  // as "Blockhash not found" rather than as anything useful.
+  const { blockhash } = (await svCall("getLatestBlockhash", [{ commitment: "finalized" }])).value;
+  const tx = sv.unsignedTx(acc.address, ixs, blockhash);
+  return turbo.signAndSend(b64(tx), svRpc(), 0);
+}
+
 /* ------------------------------------------------------------- the vault */
 /* A price the vault will accept: signed by the operator, with its own age on
    it. Fetched per use rather than cached — the contract refuses anything over
@@ -1280,7 +1452,7 @@ async function record(entry) {
  *
  * This is a literal, not the manifest's version: an old worker reading the new
  * manifest off disk would report the new number and prove nothing. */
-const BUILD = "1.10.0";
+const BUILD = "1.11.0";
 
 const HANDLERS = {
   // Not "build" — that name is already the swap builder further down, and an
@@ -1306,6 +1478,15 @@ const HANDLERS = {
      they appear — on the strip, on the position row and in the popup — because
      a position that looks real and is not is the one thing worse than no
      position at all. */
+  /* ------------------------------------------------------ vault, Solana */
+  /* The same venue, for the coins the panel mostly sees. The margin is USDC
+     from the Solana trading account and it goes to the program; the position
+     is a transaction that account signs, so a long is a tap. */
+  svaultMarket: (m) => svaultMarket(m.address),
+  svaultOpen: (m) => svaultOpen(m),
+  svaultList: (m) => svaultList(m.address),
+  svaultClose: (m) => svaultClose(m),
+
   /* ------------------------------------------------------------- vault */
   /* Leverage on coins no exchange lists, settled by a contract on Robinhood
      Chain. The trading account is the one that signs swaps, so a position is
@@ -1326,6 +1507,8 @@ const HANDLERS = {
     return {
       configured: true,
       live: mk.live,
+      stable: "USDG",
+      chainName: "Robinhood Chain",
       market: id,
       maxMargin: Number(mk.maxMargin) / 1e6,
       maxLeverage: mk.maxLeverage,

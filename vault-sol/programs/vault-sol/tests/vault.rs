@@ -740,3 +740,56 @@ fn the_payout_multiple_has_bounds() {
         assert!(b.send(&[ix], &[&house]).is_err(), "{} is not a payout multiple", bad);
     }
 }
+
+/* The other end of the window: a price stamped far enough ahead that it can
+   only have been pre-signed. Two minutes of tolerance is for a chain clock
+   that lags; three is somebody signing the future. */
+#[test]
+fn a_price_from_well_ahead_is_refused() {
+    let mut b = Bench::ready();
+    let (alice, usdc) = b.trader(1_000 * USD);
+    let id = b.next_id();
+    let at = b.now + 180;
+    let ix = Instruction::new_with_bytes(
+        program_id(),
+        &vault_sol::instruction::Open {
+            id, token: b.coin, margin: 10 * USD, leverage: 2, is_long: true,
+            price_value: P1, price_at: at,
+        }.data(),
+        vault_sol::accounts::Open {
+            trader: alice.pubkey(), vault: b.vault, market: b.market,
+            position: b.position_pda(id), from: usdc, treasury: b.treasury, mint: b.mint,
+            instructions: IX_SYSVAR, token_program: SPL_TOKEN,
+            system_program: system_program::ID,
+        }.to_account_metas(None),
+    );
+    let msg = vault_sol::price::message_for(&b.vault, &b.coin, P1, at);
+    let price = ed25519_ix(&b.operator, &msg);
+    assert!(b.send(&[price, ix], &[&alice]).is_err());
+}
+
+/* And the tolerance itself: a price a minute ahead of a lagging chain clock
+   is the normal case, not an attack. */
+#[test]
+fn a_price_ahead_of_a_lagging_clock_still_works() {
+    let mut b = Bench::ready();
+    let (alice, usdc) = b.trader(1_000 * USD);
+    let id = b.next_id();
+    let at = b.now + 60;
+    let ix = Instruction::new_with_bytes(
+        program_id(),
+        &vault_sol::instruction::Open {
+            id, token: b.coin, margin: 10 * USD, leverage: 2, is_long: true,
+            price_value: P1, price_at: at,
+        }.data(),
+        vault_sol::accounts::Open {
+            trader: alice.pubkey(), vault: b.vault, market: b.market,
+            position: b.position_pda(id), from: usdc, treasury: b.treasury, mint: b.mint,
+            instructions: IX_SYSVAR, token_program: SPL_TOKEN,
+            system_program: system_program::ID,
+        }.to_account_metas(None),
+    );
+    let msg = vault_sol::price::message_for(&b.vault, &b.coin, P1, at);
+    let price = ed25519_ix(&b.operator, &msg);
+    b.send(&[price, ix], &[&alice]).expect("a lagging chain clock is not an attack");
+}

@@ -34,7 +34,13 @@ function keys() {
     return Object.fromEntries(Object.entries(saved).map(
       ([k, seed]) => [k, s.keypairFromSeed(Buffer.from(seed, "hex"))]));
   }
-  const made = { house: s.newKeypair(), operator: s.newKeypair(), trader: s.newKeypair() };
+  const made = {
+    house: s.newKeypair(), operator: s.newKeypair(), trader: s.newKeypair(),
+    // Kept with the others so a restart produces the SAME dollar token: the
+    // extension is wired to this address, and a fresh mint every run means a
+    // panel that silently has no money.
+    mint: s.newKeypair(),
+  };
   fs.writeFileSync(keysPath, JSON.stringify(
     Object.fromEntries(Object.entries(made).map(([k, kp]) => [k, Buffer.from(kp.seed).toString("hex")])),
     null, 2));
@@ -72,7 +78,7 @@ const main = async () => {
   await airdrop(k.trader.pubkey, 10);
 
   // the dollar token: a mint this script owns, so nobody has to buy anything
-  const mint = s.newKeypair();
+  const mint = k.mint;
   const houseUsd = s.newKeypair();
   const traderUsd = s.newKeypair();
   const mintRent = await call("getMinimumBalanceForRentExemption", [82]);

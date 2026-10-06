@@ -31,6 +31,17 @@ pub const MAX_FUNDING_BPS: u16 = 10; // 0.1% of notional an hour
 /// A signed price is usable for this long, and no longer.
 pub const MAX_PRICE_AGE: i64 = 120;
 
+/// And how far ahead of the chain's own clock a price may be stamped.
+///
+/// This is not symmetry for its own sake. A chain's clock is an estimate that
+/// drifts behind wall time — a local validator twenty minutes old was already
+/// sixteen seconds behind, and mainnet's has been minutes out — so a price
+/// stamped with the true time arrives looking like it came from the future.
+/// Five seconds of tolerance made the venue stop working as the day went on.
+/// What the check is actually for is stopping an operator from pre-signing
+/// prices far ahead, and two minutes stops that just as well.
+pub const MAX_PRICE_SKEW: i64 = 120;
+
 /// If the operator goes quiet for this long, traders walk out at entry
 /// without anybody's permission.
 pub const STALE_EXIT: i64 = 3_600;

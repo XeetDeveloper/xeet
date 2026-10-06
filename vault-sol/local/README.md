@@ -103,3 +103,21 @@ lender is somebody else.
 - The caps here are a laptop's. On the live $XEET pool, about $14K deep,
   **$25 a position** is also the honest mainnet cap: moving that pool ten
   percent costs around $340, and the book must never be able to pay more.
+
+## Doing it from the panel on x.com
+
+1. `./local/run.sh` — the venue, as above. It also re-wires the extension.
+2. Load `~/Desktop/Xeet-1.11.0-preview` unpacked in `chrome://extensions`
+   (or press reload on it), open the popup, and create the **Solana trading
+   account** under one-click trading. Copy its address.
+3. `node local/fund-panel.mjs <that address>` — 2 SOL for fees and $100.
+4. On x.com, hover a post with `$XEET` → **PERPS** → `$25` · `2x` → **LONG**.
+
+The position opens on the local validator at the live price, shows up under
+the buttons with its live PnL, and **CLOSE** settles it. The face says
+**LOCAL PREVIEW** on every line while the venue is on this machine, and the
+confirmation says "· preview" — a recording of it is a recording of a
+preview build, and it says so itself.
+
+After `./local/run.sh` restarts, the ledger is fresh: run step 3 again.
+`./local/wire-extension.sh off` points the extension back at nothing local.

@@ -318,6 +318,25 @@ export function createTokenAccountIxs(payer, acc, mint, owner, rentLamports) {
   ];
 }
 
+export const ATA_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
+
+export const ataOf = (owner, mint) =>
+  findPda([unbs58(owner), unbs58(TOKEN), unbs58(mint)], ATA_PROGRAM)[0];
+
+/* Create the associated token account — where a wallet's dollars live. */
+export const createAtaIx = (payer, owner, mint) => ({
+  programId: ATA_PROGRAM,
+  keys: [
+    { pubkey: payer, isSigner: true, isWritable: true },
+    { pubkey: ataOf(owner, mint), isSigner: false, isWritable: true },
+    { pubkey: owner, isSigner: false, isWritable: false },
+    { pubkey: mint, isSigner: false, isWritable: false },
+    { pubkey: SYSTEM, isSigner: false, isWritable: false },
+    { pubkey: TOKEN, isSigner: false, isWritable: false },
+  ],
+  data: new Uint8Array(0),
+});
+
 export const mintToIx = (mint, to, authority, amount) => ({
   programId: TOKEN,
   keys: [

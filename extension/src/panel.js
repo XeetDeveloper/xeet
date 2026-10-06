@@ -36,7 +36,7 @@
    *
    * A literal, kept in step with the manifest by build.sh, which refuses to
    * build when they disagree. */
-  const BUILD = "1.10.0";
+  const BUILD = "1.11.0";
 
   const { CHAINS, FEE } = g.XEET_CFG;
   const F = g.XEET_FMT;
@@ -1312,6 +1312,14 @@
      stays on the amounts rather than going blank. */
   const levMode = () => !!session && session.mode === "lev" && !!session.perpReady;
 
+  /* A coin trades on the vault of its own chain: the Solana one for the
+     coins the panel mostly sees, the Robinhood Chain one for the rest. The
+     two speak the same four messages, so everything below this line is the
+     same either way. */
+  const venue = (t) => (t.chain === "solana"
+    ? { market: "svaultMarket", open: "svaultOpen", list: "svaultList", close: "svaultClose" }
+    : { market: "vaultMarket", open: "vaultOpen", list: "vaultList", close: "vaultClose" });
+
   function modeSwitch() {
     const host = el.tiles && el.tiles.parentElement;
     if (!host) return;
@@ -1368,7 +1376,7 @@
        from the contract rather than assumed. */
     const vault = onExchange
       ? null
-      : await send({ type: "vaultMarket", chain: t.chain, address: t.address }).catch(() => null);
+      : await send({ type: venue(t).market, chain: t.chain, address: t.address }).catch(() => null);
     if (!session || session.token !== t || !levMode()) return;
 
     const lim = onExchange
@@ -1376,6 +1384,7 @@
       : vault && vault.configured && vault.live
         ? { ok: true, maxPosition: vault.maxMargin, maxLeverage: vault.maxLeverage, venue: "Xeet vault" }
         : { ok: false };
+    const payoutMult = vault && vault.payoutMult ? vault.payoutMult : 5;
 
     if (!lim.ok) {
       face.innerHTML = '<p class="levnote"></p>';
@@ -1430,16 +1439,17 @@
     // or a vault that could not cover the win it would owe.
     const broke = !onExchange && vault.balance < size;
     const noRoom = !onExchange && vault.roomNotional < notional;
-    const houseShort = !onExchange && vault.houseFree < size * 5;
+    const houseShort = !onExchange && vault.houseFree < size * (payoutMult - 1);
     note.textContent = !onExchange
       ? broke
-        ? `Your trading account holds $${vault.balance.toFixed(2)} of USDG on Robinhood Chain — fund it to trade`
+        ? `Your trading account holds $${vault.balance.toFixed(2)} of ${vault.stable || "USDC"}`
+          + ` on ${vault.chainName || "chain"} — fund it to trade`
         : noRoom
           ? `The book for this coin is full — $${vault.roomNotional.toFixed(0)} of room left`
           : houseShort
             ? "The vault cannot cover a win this size right now"
-            : `Xeet vault · $${size} at ${lev}x · a long liquidates near `
-              + `${liqLong ? F.price(liqLong) : "—"} · profit capped at 5x your margin`
+            : `${vault.preview ? "LOCAL PREVIEW · " : ""}Xeet vault · $${size} at ${lev}x · a long liquidates near `
+              + `${liqLong ? F.price(liqLong) : "—"} · profit capped at ${payoutMult}x your margin`
       : !w.address
         ? "Connect a wallet to trade perps — the margin stays in your own exchange account"
         : acct && !acct.exists
@@ -1519,7 +1529,7 @@
      price, and the way out next to it. A position you cannot close from the
      place you opened it is not a position, it is a trap. */
   async function vaultRows(face, t) {
-    const open = await send({ type: "vaultList", chain: t.chain, address: t.address }).catch(() => []);
+    const open = await send({ type: venue(t).list, chain: t.chain, address: t.address }).catch(() => []);
     if (!open || !open.length || !session || session.token !== t || !levMode()) return;
 
     for (const pos of open) {
@@ -1543,7 +1553,7 @@
         close.disabled = true;
         flipTo(reviewCard("Closing", `${pos.isLong ? "Long" : "Short"} $${pos.margin.toFixed(2)} · ${pos.leverage}x`));
         try {
-          await send({ type: "vaultClose", id: pos.id, chain: pos.chain, address: pos.address });
+          await send({ type: venue(t).close, id: pos.id, chain: t.chain, address: pos.address });
           flipTo(reviewCard("Position closed",
             pos.payout != null ? `$${pos.payout.toFixed(2)} back to your trading account` : "settled on chain"));
           dismissLater();
@@ -1567,12 +1577,12 @@
     flipTo(reviewCard(isLong ? "Going long" : "Going short", `${t.symbol} · $${usd} at ${leverage}x`));
     try {
       const res = await send({
-        type: "vaultOpen",
+        type: venue(t).open,
         chain: t.chain, address: t.address, symbol: t.symbol,
         usd, leverage, isLong,
       });
       flipTo(reviewCard(
-        isLong ? "Long opened" : "Short opened",
+        (isLong ? "Long opened" : "Short opened") + (res.preview ? " · preview" : ""),
         `${t.symbol} · $${usd} at ${leverage}x` + (res.price ? ` at ${res.price}` : ""),
       ));
       levFace();

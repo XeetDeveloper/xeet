@@ -41,7 +41,8 @@ if [ ! -f local/.keys.json ]; then
     const c = require("node:crypto"), fs = require("node:fs");
     const seed = () => c.randomBytes(32).toString("hex");
     fs.writeFileSync("local/.keys.json", JSON.stringify(
-      { house: seed(), operator: seed(), trader: seed() }, null, 2), { mode: 0o600 });
+      { house: seed(), operator: seed(), trader: seed(), mint: seed() }, null, 2),
+      { mode: 0o600 });
   '
 fi
 OPERATOR_SEED=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("local/.keys.json")).operator)')
@@ -64,3 +65,9 @@ echo $! > "$PID_DIR/price.pid"
 sleep 1
 
 node local/setup.mjs
+
+# The extension is wired to the mint and the node, and both survive a restart,
+# so this keeps a loaded build pointing at whatever is running now.
+if [ -f extension/src/config.js ] || [ -f ../extension/src/config.js ]; then
+  ./local/wire-extension.sh >/dev/null && echo "extension re-wired (reload it in chrome://extensions)"
+fi
