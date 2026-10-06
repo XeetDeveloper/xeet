@@ -20,9 +20,9 @@
 import "./config.js";
 import * as turbo from "./turbo.js";
 import * as perps from "./perps.js";
-import * as micro from "./micro.js";
+import * as vault from "./vault.js";
 
-const { CHAINS, BY_DS, BY_GT, API, FEE, DEFAULTS } = self.XEET_CFG;
+const { CHAINS, BY_DS, BY_GT, API, FEE, DEFAULTS, VAULT } = self.XEET_CFG;
 
 /* --------------------------------------------------------------- caching */
 /* A service worker is evicted after ~30s idle, so this cache is a burst cache
@@ -1223,6 +1223,33 @@ async function turboHoldings(kind) {
   return { rows, total: rows.reduce((n, r) => n + (r.usd || 0), 0), account: acc.address };
 }
 
+/* ------------------------------------------------------------- the vault */
+/* A price the vault will accept: signed by the operator, with its own age on
+   it. Fetched per use rather than cached — the contract refuses anything over
+   two minutes old, so a cached one is a failed transaction. */
+async function signedPrice(chain, address) {
+  const url = `${VAULT.price}?chain=${encodeURIComponent(chain)}&address=${encodeURIComponent(address)}`
+    + `&vault=${VAULT.address}&chainId=${CHAINS[VAULT.chain].id}`;
+  const r = await fetch(url, { cache: "no-store" });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.error || "no price for this coin right now");
+  return body;
+}
+
+/* A receipt, or the truth that there is not one. Robinhood Chain mines in
+   about a second; thirty is a transaction that is not coming. */
+async function waitFor(node, hash) {
+  for (let i = 0; i < 30; i++) {
+    const r = await node("eth_getTransactionReceipt", [hash]).catch(() => null);
+    if (r) {
+      if (r.status === "0x0") throw new Error("the transaction reverted on chain");
+      return r;
+    }
+    await new Promise((d) => setTimeout(d, 1000));
+  }
+  throw new Error("the transaction has not confirmed yet");
+}
+
 /* ------------------------------------------------------------- settings */
 async function getSettings() {
   const s = await chrome.storage.sync.get(DEFAULTS);
@@ -1279,56 +1306,123 @@ const HANDLERS = {
      they appear — on the strip, on the position row and in the popup — because
      a position that looks real and is not is the one thing worse than no
      position at all. */
-  microLimits: async (m) => micro.limitsFor(m.liquidityUsd),
-
-  microList: async () => {
-    const { micros } = await chrome.storage.local.get({ micros: [] });
-    return micros;
-  },
-
-  microOpen: async (m) => {
-    const { micros } = await chrome.storage.local.get({ micros: [] });
-    const open = micros.filter((p) => !p.closedAt);
-    const exposure = open.reduce((n, p) => n + p.usd * p.leverage, 0);
-    const gate = micro.check({
-      usd: m.usd, leverage: m.leverage, liquidityUsd: m.liquidityUsd, openExposure: exposure,
-    });
-    if (!gate.ok) throw new Error(gate.why);
-    if (!m.entry) throw new Error("no price for this token");
-
-    const pos = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      paper: true,
-      chain: m.chain, address: m.address, symbol: m.symbol,
-      isLong: !!m.isLong, usd: Number(m.usd), leverage: Number(m.leverage),
-      entry: Number(m.entry), openedAt: Date.now(),
-      liq: micro.liquidationPrice(Number(m.entry), Number(m.leverage), !!m.isLong),
+  /* ------------------------------------------------------------- vault */
+  /* Leverage on coins no exchange lists, settled by a contract on Robinhood
+     Chain. The trading account is the one that signs swaps, so a position is
+     a tap and not a wallet window — but the margin is real USDG and it goes
+     to the contract, not to us. */
+  vaultMarket: async (m) => {
+    if (!VAULT.address) return { configured: false };
+    const chain = CHAINS[VAULT.chain];
+    const node = vault.rpc(chain.rpc);
+    const id = vault.marketId(m.chain, m.address);
+    const acc = await turbo.account("evm");
+    const [mk, free, bal, allow] = await Promise.all([
+      vault.market(node, VAULT.address, id),
+      vault.houseFree(node, VAULT.address),
+      acc ? vault.balance(node, VAULT.usdg, acc.address) : Promise.resolve(0n),
+      acc ? vault.allowance(node, VAULT.usdg, acc.address, VAULT.address) : Promise.resolve(0n),
+    ]);
+    return {
+      configured: true,
+      live: mk.live,
+      market: id,
+      maxMargin: Number(mk.maxMargin) / 1e6,
+      maxLeverage: mk.maxLeverage,
+      roomNotional: Number(mk.roomNotional) / 1e6,
+      houseFree: Number(free) / 1e6,
+      balance: Number(bal) / 1e6,
+      allowance: Number(allow) / 1e6,
+      account: acc ? acc.address : null,
     };
-    micros.unshift(pos);
-    await chrome.storage.local.set({ micros: micros.slice(0, 100) });
-    return pos;
   },
 
-  /* What a position is worth, answered here rather than in the panel: the
-     panel drawing its own pnl is how a close ends up paying a different
-     number than the row promised. */
-  microValue: async (m) => {
-    const { micros } = await chrome.storage.local.get({ micros: [] });
-    const pos = micros.find((p) => p.id === m.id);
-    if (!pos) throw new Error("no such position");
-    return micro.valueOf(pos, Number(m.mark) || pos.entry);
+  vaultPrice: (m) => signedPrice(m.chain, m.address),
+
+  vaultOpen: async (m) => {
+    if (!VAULT.address) throw new Error("the vault is not deployed yet");
+    const chain = CHAINS[VAULT.chain];
+    const acc = await turbo.account("evm");
+    if (!acc) throw new Error("no trading account on Robinhood Chain");
+
+    const margin = BigInt(Math.round(Number(m.usd) * 1e6));
+    const node = vault.rpc(chain.rpc);
+    const have = await vault.balance(node, VAULT.usdg, acc.address);
+    if (have < margin) {
+      throw new Error(`the trading account holds $${(Number(have) / 1e6).toFixed(2)} of USDG — fund it to trade`);
+    }
+
+    // One approval, reused: the allowance is topped up only when it runs out.
+    await turbo.ensureAllowance(chain, VAULT.usdg, VAULT.address, margin);
+
+    const price = await signedPrice(m.chain, m.address);
+    const data = vault.encodeOpen(
+      price.market, margin, Math.round(Number(m.leverage) || 1), !!m.isLong, price, price.signature);
+    const { hash } = await turbo.sendCall(chain, { to: VAULT.address, data }, Number(m.usd));
+    const receipt = await waitFor(node, hash);
+    const id = vault.openedIdFrom(receipt, VAULT.address);
+    if (!id) throw new Error("the position did not open — the price may have expired");
+
+    const { vaultPositions: kept = [] } = await chrome.storage.local.get({ vaultPositions: [] });
+    kept.unshift({ id, chain: m.chain, address: m.address, symbol: m.symbol, at: Date.now() });
+    await chrome.storage.local.set({ vaultPositions: kept.slice(0, 50) });
+    return { id, hash, entry: price.value, price: price.price };
   },
 
-  microClose: async (m) => {
-    const { micros } = await chrome.storage.local.get({ micros: [] });
-    const pos = micros.find((p) => p.id === m.id);
-    if (!pos || pos.closedAt) throw new Error("that position is already closed");
-    const v = micro.valueOf(pos, Number(m.mark) || pos.entry);
-    pos.closedAt = Date.now();
-    pos.exit = Number(m.mark) || pos.entry;
-    pos.pnl = v.pnl;
-    await chrome.storage.local.set({ micros });
-    return pos;
+  /* Everything this device has open, priced right now. Ids are remembered
+     locally because the contract does not index by trader and this chain's
+     node does not love a wide getLogs. */
+  vaultList: async (m) => {
+    if (!VAULT.address) return [];
+    const chain = CHAINS[VAULT.chain];
+    const node = vault.rpc(chain.rpc);
+    const { vaultPositions: kept = [] } = await chrome.storage.local.get({ vaultPositions: [] });
+    const mine = m && m.address
+      ? kept.filter((k) => k.address === m.address && k.chain === m.chain)
+      : kept;
+
+    const out = [];
+    for (const k of mine.slice(0, 10)) {
+      const pos = await vault.position(node, VAULT.address, k.id).catch(() => null);
+      if (!pos || !pos.open) continue;
+      let value = null;
+      try {
+        const price = await signedPrice(k.chain, k.address);
+        value = await vault.valueOf(node, VAULT.address, k.id, price.value);
+      } catch { /* a position with no price is still a position */ }
+      out.push({
+        id: k.id, chain: k.chain, address: k.address, symbol: k.symbol,
+        margin: Number(pos.margin) / 1e6,
+        leverage: pos.leverage,
+        isLong: pos.isLong,
+        entry: pos.entry.toString(),
+        pnl: value ? Number(value.pnl) / 1e6 : null,
+        payout: value ? Number(value.payout) / 1e6 : null,
+        liquidatable: value ? value.liquidatable : false,
+      });
+    }
+    return out;
+  },
+
+  vaultClose: async (m) => {
+    if (!VAULT.address) throw new Error("the vault is not deployed yet");
+    const chain = CHAINS[VAULT.chain];
+    const price = await signedPrice(m.chain, m.address);
+    const data = vault.encodeClose(m.id, price, price.signature);
+    const { hash } = await turbo.sendCall(chain, { to: VAULT.address, data });
+    await waitFor(vault.rpc(chain.rpc), hash);
+    return { hash };
+  },
+
+  /* The exit that needs nobody's permission, for when the price service has
+     been quiet for an hour. */
+  vaultCloseStale: async (m) => {
+    if (!VAULT.address) throw new Error("the vault is not deployed yet");
+    const chain = CHAINS[VAULT.chain];
+    const { hash } = await turbo.sendCall(
+      chain, { to: VAULT.address, data: vault.encodeCloseStale(m.id) });
+    await waitFor(vault.rpc(chain.rpc), hash);
+    return { hash };
   },
 
   /* ------------------------------------------------------------- perps */

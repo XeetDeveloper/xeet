@@ -63,6 +63,20 @@
 <script src="../src/config.js"></script>
 <script src="../src/format.js"></script>
 <script src="../src/bridge.js"></script>
+<script>
+/* Bench-only: point the vault at a local chain and a local price service, so
+   the whole leverage path can be driven end to end before a mainnet deploy.
+   ?vault=0x..&rpc=http://127.0.0.1:8545&price=http://127.0.0.1:8910/price */
+(() => {
+  const q = new URLSearchParams(location.search);
+  const cfg = window.XEET_CFG;
+  if (q.get("vault")) cfg.VAULT.address = q.get("vault");
+  if (q.get("price")) cfg.VAULT.price = q.get("price");
+  if (q.get("usdg")) cfg.VAULT.usdg = q.get("usdg");
+  if (q.get("rpc")) cfg.CHAINS.robinhood.rpc = q.get("rpc");
+  if (q.get("chainid")) cfg.CHAINS.robinhood.id = Number(q.get("chainid"));
+})();
+</script>
 <script src="shim.js"></script>
 <script type="module" src="../src/background.js"></script>
 <script src="../src/panel-html.js"></script>

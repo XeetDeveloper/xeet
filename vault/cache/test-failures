@@ -1,0 +1,1 @@
+{"version":1,"failures":[{"contract":"test/XeetVault.t.sol:XeetVaultTest","test":"test_FundingIsChargedForTimeOpen"},{"contract":"test/XeetVault.t.sol:XeetVaultTest","test":"test_HouseCannotWithdrawWhatPositionsNeed"}]}

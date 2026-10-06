@@ -1363,16 +1363,27 @@
     const acct = onExchange && w.address
       ? await send({ type: "perpAccount", address: w.address }).catch(() => null)
       : null;
-    const lim = onExchange
-      ? { ok: true, maxPosition: Infinity, maxLeverage: session.perp.maxLeverage || 20, venue: "Hyperliquid" }
-      : await send({ type: "microLimits", liquidityUsd: Number(t.liquidity) || 0 }).catch(() => null);
+    /* Off the exchange the counterparty is the Xeet vault, and everything it
+       will allow — the caps, the room left, what it can still pay — is read
+       from the contract rather than assumed. */
+    const vault = onExchange
+      ? null
+      : await send({ type: "vaultMarket", chain: t.chain, address: t.address }).catch(() => null);
     if (!session || session.token !== t || !levMode()) return;
 
-    if (!lim || !lim.ok) {
+    const lim = onExchange
+      ? { ok: true, maxPosition: Infinity, maxLeverage: session.perp.maxLeverage || 20, venue: "Hyperliquid" }
+      : vault && vault.configured && vault.live
+        ? { ok: true, maxPosition: vault.maxMargin, maxLeverage: vault.maxLeverage, venue: "Xeet vault" }
+        : { ok: false };
+
+    if (!lim.ok) {
       face.innerHTML = '<p class="levnote"></p>';
-      face.querySelector(".levnote").textContent =
-        "This pool is too thin to carry leverage safely. Moving its price costs less than the book could pay out, "
-        + "so there is no size at which this would be fair.";
+      face.querySelector(".levnote").textContent = !vault || !vault.configured
+        ? "Leverage on coins this young is not live yet. It needs a venue that can actually pay out, "
+          + "and the one being built for it is not deployed."
+        : "This coin is not listed in the vault yet — it is listed once its pool is deep enough that "
+          + "a position could not be paid for by moving the price.";
       return;
     }
 
@@ -1414,9 +1425,21 @@
     const notional = size * lev;
     const tooSmall = onExchange && notional < 10;
     const noAccount = onExchange && (!w.address || (acct && !acct.exists));
+    // The vault's own refusals, answered here instead of as a failed
+    // transaction: no money in the trading account, no room left in the book,
+    // or a vault that could not cover the win it would owe.
+    const broke = !onExchange && vault.balance < size;
+    const noRoom = !onExchange && vault.roomNotional < notional;
+    const houseShort = !onExchange && vault.houseFree < size * 5;
     note.textContent = !onExchange
-      ? `PAPER · $${size} at ${lev}x · long liquidates near ${liqLong ? F.price(liqLong) : "—"}`
-        + ` · this pool allows $${lim.maxPosition} a position`
+      ? broke
+        ? `Your trading account holds $${vault.balance.toFixed(2)} of USDG on Robinhood Chain — fund it to trade`
+        : noRoom
+          ? `The book for this coin is full — $${vault.roomNotional.toFixed(0)} of room left`
+          : houseShort
+            ? "The vault cannot cover a win this size right now"
+            : `Xeet vault · $${size} at ${lev}x · a long liquidates near `
+              + `${liqLong ? F.price(liqLong) : "—"} · profit capped at 5x your margin`
       : !w.address
         ? "Connect a wallet to trade perps — the margin stays in your own exchange account"
         : acct && !acct.exists
@@ -1435,18 +1458,18 @@
       b.className = "levbtn " + (isLong ? "long" : "short");
       b.innerHTML = `<b>${text}</b><span>$${size} · ${lev}x</span>`;
       // A button that cannot possibly work should not look like one.
-      if (tooSmall || noAccount) b.disabled = true;
+      if (tooSmall || noAccount || broke || noRoom || houseShort) b.disabled = true;
       b.addEventListener("click", (e) => {
         e.stopPropagation();
         if (onExchange) perpTrade(isLong, lev, size);
-        else microOpen(isLong, lev, lim, size);
+        else vaultOpen(isLong, lev, size);
       });
       dirs.appendChild(b);
     });
 
     face.append(sizeRow, levRow, dirs, note);
     if (onExchange) exchangeRows(face, t, acct);
-    else openRows(face, t);
+    else vaultRows(face, t);
   }
 
   /* The same row, for a position that is really on the exchange. The numbers
@@ -1492,43 +1515,40 @@
     }
   }
 
-  /* What is already open on this token, with the way out next to it. A
-     position you cannot close from the same place you opened it is not a
-     position, it is a trap. */
-  async function openRows(face, t) {
-    const all = await send({ type: "microList" }).catch(() => []);
-    const mine = (all || []).filter(
-      (p) => !p.closedAt && p.address === t.address && p.chain === t.chain);
-    if (!mine.length || !session || session.token !== t || !levMode()) return;
+  /* What is really open on this token, read back off the chain with a fresh
+     price, and the way out next to it. A position you cannot close from the
+     place you opened it is not a position, it is a trap. */
+  async function vaultRows(face, t) {
+    const open = await send({ type: "vaultList", chain: t.chain, address: t.address }).catch(() => []);
+    if (!open || !open.length || !session || session.token !== t || !levMode()) return;
 
-    for (const pos of mine) {
-      const v = await send({ type: "microValue", id: pos.id, mark: t.priceUsd }).catch(() => null);
-      if (!session || session.token !== t || !levMode()) return;
+    for (const pos of open) {
       const row = document.createElement("div");
-      row.className = "levopen" + (v && v.pnl < 0 ? " down" : "");
+      row.className = "levopen" + (pos.pnl != null && pos.pnl < 0 ? " down" : "");
       const left = document.createElement("span");
-      left.textContent = `${pos.isLong ? "LONG" : "SHORT"} $${pos.usd} · ${pos.leverage}x`;
+      left.textContent = `${pos.isLong ? "LONG" : "SHORT"} $${pos.margin.toFixed(2)} · ${pos.leverage}x`;
       const mid = document.createElement("b");
-      // One sign, one source: a row reading "−$0.01 (-0%)" makes the reader
-      // check which of the two numbers is lying.
-      const sign = v && v.pnl >= 0 ? "+" : "−";
-      mid.textContent = v
-        ? `${sign}$${Math.abs(v.pnl).toFixed(2)} (${sign}${Math.abs(v.pct).toFixed(1)}%)`
-        : "—";
+      const sign = (pos.pnl || 0) >= 0 ? "+" : "−";
+      mid.textContent = pos.pnl == null
+        ? "—"
+        : pos.liquidatable
+          ? "LIQUIDATED"
+          : `${sign}$${Math.abs(pos.pnl).toFixed(2)}`;
       const close = document.createElement("button");
       close.type = "button";
       close.className = "levclose";
-      close.textContent = v && v.liquidated ? "LIQUIDATED" : "CLOSE";
+      close.textContent = "CLOSE";
       close.addEventListener("click", async (e) => {
         e.stopPropagation();
         close.disabled = true;
-        const done = await send({ type: "microClose", id: pos.id, mark: t.priceUsd }).catch(() => null);
-        if (done) {
-          flipTo(reviewCard(
-            "Position closed · paper",
-            `${done.pnl >= 0 ? "+" : "−"}$${Math.abs(done.pnl).toFixed(2)} on $${done.usd} at ${done.leverage}x`,
-          ));
+        flipTo(reviewCard("Closing", `${pos.isLong ? "Long" : "Short"} $${pos.margin.toFixed(2)} · ${pos.leverage}x`));
+        try {
+          await send({ type: "vaultClose", id: pos.id, chain: pos.chain, address: pos.address });
+          flipTo(reviewCard("Position closed",
+            pos.payout != null ? `$${pos.payout.toFixed(2)} back to your trading account` : "settled on chain"));
           dismissLater();
+        } catch (err) {
+          flipTo(failCard("The close did not go through", err.message || "Rejected", false, null));
         }
         levFace();
       });
@@ -1537,22 +1557,30 @@
     }
   }
 
-  async function microOpen(isLong, leverage, lim, usd) {
+  /* Opening one. The margin is USDG from the trading account and it goes to
+     the contract; nothing about this position is held by us. */
+  async function vaultOpen(isLong, leverage, usd) {
+    if (session.busy) return;
     const t = session.token;
+    session.busy = true;
+    pinned = true;
+    flipTo(reviewCard(isLong ? "Going long" : "Going short", `${t.symbol} · $${usd} at ${leverage}x`));
     try {
-      const pos = await send({
-        type: "microOpen",
+      const res = await send({
+        type: "vaultOpen",
         chain: t.chain, address: t.address, symbol: t.symbol,
-        isLong, usd, leverage, entry: t.priceUsd, liquidityUsd: t.liquidity,
+        usd, leverage, isLong,
       });
       flipTo(reviewCard(
-        (isLong ? "Long opened" : "Short opened") + " · paper",
-        `$${usd} at ${leverage}x · liquidation ${F.price(pos.liq)}`,
+        isLong ? "Long opened" : "Short opened",
+        `${t.symbol} · $${usd} at ${leverage}x` + (res.price ? ` at ${res.price}` : ""),
       ));
-      levFace();                 // so the new position is there on the way back
+      levFace();
       dismissLater();
     } catch (e) {
-      flipTo(failCard("Not allowed", e.message || "rejected", false, null));
+      flipTo(failCard("The position did not open", e.message || "Rejected", false, null));
+    } finally {
+      session.busy = false;
     }
   }
 

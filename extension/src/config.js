@@ -171,6 +171,18 @@
   const BY_GT = {};
   for (const k in CHAINS) BY_GT[CHAINS[k].gt] = CHAINS[k];
 
+  /* The venue for coins no exchange will list: a vault on Robinhood Chain
+     that is the counterparty to every position in it. Empty until it is
+     deployed — and while it is empty the panel says leverage is not live on
+     these coins rather than pretending with paper positions.
+     The contract and its tests are in vault/ at the root of this repo. */
+  const VAULT = {
+    chain: "robinhood",
+    address: "",                                    // XeetVault, after deploy
+    usdg: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",   // 6 decimals, verified on chain 4663
+    price: "https://xeet.click/api/price",          // the operator's signing service
+  };
+
   const DEFAULTS = {
     on: true,
     slippageBps: 100,          // 1%
@@ -201,5 +213,5 @@
     goplus: "https://api.gopluslabs.io/api/v1",
   };
 
-  g.XEET_CFG = { FEE, CHAINS, BY_DS, BY_GT, DEFAULTS, API };
+  g.XEET_CFG = { FEE, CHAINS, BY_DS, BY_GT, DEFAULTS, API, VAULT };
 })(typeof self !== "undefined" ? self : window);
