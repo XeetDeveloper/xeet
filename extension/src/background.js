@@ -1248,6 +1248,19 @@ async function svAccount(pubkey) {
   return bytes;
 }
 
+/* Done means confirmed, not sent. A transaction the node accepted can still
+   fail in the program — a stale price, a full book — and calling that
+   "opened" would show a position that never existed. */
+async function svConfirm(sig) {
+  for (let i = 0; i < 60; i++) {
+    const st = (await svCall("getSignatureStatuses", [[sig]])).value[0];
+    if (st && st.err) throw new Error("the transaction failed on chain");
+    if (st && (st.confirmationStatus === "confirmed" || st.confirmationStatus === "finalized")) return;
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  throw new Error("the transaction has not confirmed yet");
+}
+
 const b64 = (bytes) => {
   let s = "";
   for (let i = 0; i < bytes.length; i += 0x8000) {
@@ -1334,6 +1347,7 @@ async function svaultOpen({ address, symbol, usd, leverage, isLong }) {
   const { blockhash } = (await svCall("getLatestBlockhash", [{ commitment: "finalized" }])).value;
   const tx = sv.unsignedTx(acc.address, ixs, blockhash);
   const { hash } = await turbo.signAndSend(b64(tx), svRpc(), Number(usd));
+  await svConfirm(hash);
 
   const { svPositions: kept = [] } = await chrome.storage.local.get({ svPositions: [] });
   kept.unshift({ id, address, symbol, at: Date.now() });
@@ -1392,7 +1406,9 @@ async function svaultClose({ id, address }) {
   // as "Blockhash not found" rather than as anything useful.
   const { blockhash } = (await svCall("getLatestBlockhash", [{ commitment: "finalized" }])).value;
   const tx = sv.unsignedTx(acc.address, ixs, blockhash);
-  return turbo.signAndSend(b64(tx), svRpc(), 0);
+  const sent = await turbo.signAndSend(b64(tx), svRpc(), 0);
+  await svConfirm(sent.hash);
+  return sent;
 }
 
 /* ------------------------------------------------------------- the vault */

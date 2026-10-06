@@ -1553,7 +1553,7 @@
         close.disabled = true;
         flipTo(reviewCard("Closing", `${pos.isLong ? "Long" : "Short"} $${pos.margin.toFixed(2)} · ${pos.leverage}x`));
         try {
-          await send({ type: venue(t).close, id: pos.id, chain: t.chain, address: pos.address });
+          await atLeast(send({ type: venue(t).close, id: pos.id, chain: t.chain, address: pos.address }), 900);
           flipTo(doneCard("Position closed",
             pos.payout != null ? `$${pos.payout.toFixed(2)} back to your trading account` : "settled on chain"));
           backToFace();
@@ -1576,11 +1576,11 @@
     pinned = true;
     flipTo(reviewCard(isLong ? "Going long" : "Going short", `${t.symbol} · $${usd} at ${leverage}x`));
     try {
-      const res = await send({
+      const res = await atLeast(send({
         type: venue(t).open,
         chain: t.chain, address: t.address, symbol: t.symbol,
         usd, leverage, isLong,
-      });
+      }), 900);
       flipTo(doneCard(
         isLong ? "Long opened" : "Short opened",
         `${t.symbol} · $${usd} at ${leverage}x` + (res.price ? ` at ${res.price}` : ""),
@@ -2341,6 +2341,12 @@
     }
     return d;
   }
+
+  /* A wait that is never shorter than `ms`. A confirmation that lands in two
+     hundred milliseconds flashes the spinner too fast to read, and a flash
+     looks like nothing happened at all. */
+  const atLeast = (promise, ms) =>
+    Promise.all([promise, new Promise((r) => setTimeout(r, ms))]).then(([v]) => v);
 
   /* The same card with a check where the spinner was. A spinner on a result
      reads as "still going", and a receipt that keeps spinning is how somebody
