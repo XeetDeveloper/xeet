@@ -1499,14 +1499,20 @@
 .xeet-lp .levbtn {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   padding: 12px 8px; border: 0; border-radius: 12px; cursor: pointer;
-  transition: filter .12s ease, transform .08s ease;
+  transition: filter .12s ease;
 }
+/* The label inside is part of the button as far as the mouse is concerned. */
+.xeet-lp .levbtn > * { pointer-events: none; }
 .xeet-lp .levbtn b { font: 800 14px/1 var(--lp-disp, system-ui); letter-spacing: .12em; }
 .xeet-lp .levbtn span { font: 600 10px/1 ui-monospace, Menlo, monospace; opacity: .72; }
 .xeet-lp .levbtn.long { color: #04170F; background: #16E08A; }
 .xeet-lp .levbtn.short { color: #1A0509; background: #FF4D6D; }
 .xeet-lp .levbtn:hover { filter: brightness(1.08); }
-.xeet-lp .levbtn:active { transform: translateY(1px); }
+/* Pressed is a shade, never a move. A 1px translate on :active was enough for
+   Chrome to hand the mouseup to the container instead of the button, so a
+   real click was swallowed whole — while a scripted .click(), which skips the
+   press entirely, kept working and hid it. */
+.xeet-lp .levbtn:active { filter: brightness(.92); }
 /* The line that says what the position actually is — size, liquidation and
    the cap this pool allows. It is not fine print: it is the product. */
 .xeet-lp .levnote {

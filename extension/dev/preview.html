@@ -63,8 +63,12 @@
 <script src="../src/config.js"></script>
 <script src="../src/format.js"></script>
 <script src="../src/bridge.js"></script>
-<script>
-/* Bench-only: point the vault at a local chain and a local price service, so
+<script src="shim.js"></script>
+<script type="module" src="../src/background.js"></script>
+<script type="module">
+/* Bench-only — a module placed after background.js, because the worker
+   imports config.js again and a classic script's edits would be thrown away.
+   Modules run in document order, so this one sees the object the worker kept.: point the vault at a local chain and a local price service, so
    the whole leverage path can be driven end to end before a mainnet deploy.
    ?vault=0x..&rpc=http://127.0.0.1:8545&price=http://127.0.0.1:8910/price */
 (() => {
@@ -75,10 +79,12 @@
   if (q.get("usdg")) cfg.VAULT.usdg = q.get("usdg");
   if (q.get("rpc")) cfg.CHAINS.robinhood.rpc = q.get("rpc");
   if (q.get("chainid")) cfg.CHAINS.robinhood.id = Number(q.get("chainid"));
+  // the Solana venue: ?svrpc=http://127.0.0.1:8899&svmint=<mint>&svprice=http://127.0.0.1:8910/price
+  if (q.get("svrpc")) cfg.SVAULT.rpc = q.get("svrpc");
+  if (q.get("svmint")) cfg.SVAULT.mint = q.get("svmint");
+  if (q.get("svprice")) cfg.SVAULT.price = q.get("svprice");
 })();
 </script>
-<script src="shim.js"></script>
-<script type="module" src="../src/background.js"></script>
 <script src="../src/panel-html.js"></script>
 <script src="../src/wallet.js"></script>
 <script src="../src/panel.js"></script>
