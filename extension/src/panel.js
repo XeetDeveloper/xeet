@@ -1513,8 +1513,8 @@
             type: "perpClose", symbol: t.symbol, address: w.address,
             slippagePct: (settings.slippageBps || 100) / 100,
           });
-          flipTo(reviewCard("Position closed", `${name} · ${sign}$${Math.abs(pos.pnl).toFixed(2)}`));
-          dismissLater();
+          flipTo(doneCard("Position closed", `${name} · ${sign}$${Math.abs(pos.pnl).toFixed(2)}`));
+          backToFace();
         } catch (err) {
           flipTo(failCard("The close did not go through", err.message || "Rejected", false, null));
         }
@@ -1554,9 +1554,9 @@
         flipTo(reviewCard("Closing", `${pos.isLong ? "Long" : "Short"} $${pos.margin.toFixed(2)} · ${pos.leverage}x`));
         try {
           await send({ type: venue(t).close, id: pos.id, chain: t.chain, address: pos.address });
-          flipTo(reviewCard("Position closed",
+          flipTo(doneCard("Position closed",
             pos.payout != null ? `$${pos.payout.toFixed(2)} back to your trading account` : "settled on chain"));
-          dismissLater();
+          backToFace();
         } catch (err) {
           flipTo(failCard("The close did not go through", err.message || "Rejected", false, null));
         }
@@ -1581,12 +1581,11 @@
         chain: t.chain, address: t.address, symbol: t.symbol,
         usd, leverage, isLong,
       });
-      flipTo(reviewCard(
+      flipTo(doneCard(
         isLong ? "Long opened" : "Short opened",
         `${t.symbol} · $${usd} at ${leverage}x` + (res.price ? ` at ${res.price}` : ""),
       ));
-      levFace();
-      dismissLater();
+      backToFace();
     } catch (e) {
       flipTo(failCard("The position did not open", e.message || "Rejected", false, null));
     } finally {
@@ -1632,12 +1631,11 @@
       });
       const filled = (((res || {}).response || {}).data || {}).statuses || [];
       const px = (filled[0] && filled[0].filled && filled[0].filled.avgPx) || null;
-      flipTo(reviewCard(
+      flipTo(doneCard(
         isBuy ? "Long opened" : "Short opened",
         px ? `${t.symbol} at ${px}` : `${t.symbol} · ${leverage}x`,
       ));
-      levFace();                 // the position is on the face on the way back
-      dismissLater();
+      backToFace();
     } catch (e) {
       flipTo(failCard("The order did not go through", e.message || "Rejected", false, null));
     } finally {
@@ -2342,6 +2340,34 @@
       d.appendChild(foot);
     }
     return d;
+  }
+
+  /* The same card with a check where the spinner was. A spinner on a result
+     reads as "still going", and a receipt that keeps spinning is how somebody
+     ends up pressing the button a second time. */
+  function doneCard(title, sub) {
+    const d = reviewCard(title, sub);
+    const spin = d.querySelector(".spin");
+    if (spin) {
+      const ok = document.createElement("div");
+      ok.className = "okmark";
+      ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" '
+        + 'stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+      spin.replaceWith(ok);
+    }
+    d.classList.add("brief");
+    return d;
+  }
+
+  /* A position is something you keep watching, not a receipt you file — so
+     after a beat the panel turns back to the face, where the position now
+     sits under the buttons with its live PnL. */
+  function backToFace(ms) {
+    clearTimeout(dismissTimer);
+    setTimeout(() => {
+      if (!session) return;
+      flipBack(() => { levFace(); });
+    }, ms || 1600);
   }
 
   function leg(label, amount, recv) {

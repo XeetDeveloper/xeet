@@ -1537,3 +1537,13 @@
 }
 .xeet-lp .levclose:hover { background: rgba(255, 255, 255, .14); }
 .xeet-lp .levclose:disabled { opacity: .5; cursor: default; }
+
+/* The result of a trade: a check, not a spinner, on a card only as tall as
+   what it says — the panel turns back to the face a moment later. */
+.xeet-lp .okmark {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: var(--mint, #16E08A); color: #04170F;
+}
+.xeet-lp .okmark svg { width: 15px; height: 15px; }
+.xeet-lp .review.brief { min-height: 0; }
