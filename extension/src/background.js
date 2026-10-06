@@ -20,6 +20,7 @@
 import "./config.js";
 import * as turbo from "./turbo.js";
 import * as perps from "./perps.js";
+import * as micro from "./micro.js";
 
 const { CHAINS, BY_DS, BY_GT, API, FEE, DEFAULTS } = self.XEET_CFG;
 
@@ -1272,6 +1273,54 @@ const HANDLERS = {
   confirm: (m) => confirm(m.chain, m.hash),
   trending: (m) => trending(m.limit),
   holdings: () => holdings(),
+  /* ------------------------------------------- leverage on young coins */
+  /* Positions live in local storage and settle against the price the panel
+     itself shows. Until a vault is deployed they are marked PAPER everywhere
+     they appear — on the strip, on the position row and in the popup — because
+     a position that looks real and is not is the one thing worse than no
+     position at all. */
+  microLimits: async (m) => micro.limitsFor(m.liquidityUsd),
+
+  microList: async () => {
+    const { micros } = await chrome.storage.local.get({ micros: [] });
+    return micros;
+  },
+
+  microOpen: async (m) => {
+    const { micros } = await chrome.storage.local.get({ micros: [] });
+    const open = micros.filter((p) => !p.closedAt);
+    const exposure = open.reduce((n, p) => n + p.usd * p.leverage, 0);
+    const gate = micro.check({
+      usd: m.usd, leverage: m.leverage, liquidityUsd: m.liquidityUsd, openExposure: exposure,
+    });
+    if (!gate.ok) throw new Error(gate.why);
+    if (!m.entry) throw new Error("no price for this token");
+
+    const pos = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      paper: true,
+      chain: m.chain, address: m.address, symbol: m.symbol,
+      isLong: !!m.isLong, usd: Number(m.usd), leverage: Number(m.leverage),
+      entry: Number(m.entry), openedAt: Date.now(),
+      liq: micro.liquidationPrice(Number(m.entry), Number(m.leverage), !!m.isLong),
+    };
+    micros.unshift(pos);
+    await chrome.storage.local.set({ micros: micros.slice(0, 100) });
+    return pos;
+  },
+
+  microClose: async (m) => {
+    const { micros } = await chrome.storage.local.get({ micros: [] });
+    const pos = micros.find((p) => p.id === m.id);
+    if (!pos || pos.closedAt) throw new Error("that position is already closed");
+    const v = micro.valueOf(pos, Number(m.mark) || pos.entry);
+    pos.closedAt = Date.now();
+    pos.exit = Number(m.mark) || pos.entry;
+    pos.pnl = v.pnl;
+    await chrome.storage.local.set({ micros });
+    return pos;
+  },
+
   /* ------------------------------------------------------------- perps */
   /* Read-only halves answer from here; the signature itself happens in the
      page, in the user's own wallet, and comes back to perpSubmit. */

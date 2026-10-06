@@ -1281,7 +1281,12 @@
     const host = el.tiles && el.tiles.parentElement;
     const old = host && host.querySelector(".perpstrip");
     if (old) old.remove();
-    if (!host || !session || !session.perp || session.viewOnly || session.side === "sell") return;
+    if (!host || !session || session.viewOnly || session.side === "sell") return;
+
+    /* No exchange market? Then the coin is young, which is exactly the case
+       the capped product exists for — see src/micro.js for why the caps are
+       the product rather than a restriction on it. */
+    if (!session.perp) return microStrip(host);
 
     const m = session.perp;
     const lev = session.perpLev || Math.min(5, m.maxLeverage || 5);
@@ -1318,6 +1323,72 @@
 
     row.append(label, levBtn, mk("long"), mk("short"));
     host.appendChild(row);
+  }
+
+  /* ------------------------------- leverage on a coin with no exchange */
+  /* The strip appears only when the pool can carry it, and says what it can
+     carry: a pool too thin for any honest size says so instead of offering a
+     button that would rob whoever took it. */
+  async function microStrip(host) {
+    const t = session.token;
+    const liq = Number(t && t.liquidity) || 0;
+    const lim = await send({ type: "microLimits", liquidityUsd: liq }).catch(() => null);
+    if (!lim || !lim.ok || !session || session.token !== t) return;
+
+    const row = document.createElement("div");
+    row.className = "perpstrip";
+
+    const label = document.createElement("span");
+    label.className = "perplbl";
+    label.textContent = "LEVERAGE · PAPER";
+    label.title = `This pool allows $${lim.maxPosition} per position at up to ${lim.maxLeverage}x. `
+      + `Moving its price 10% costs about $${lim.costToMove10}, and the whole book cannot pay more than that.`;
+
+    const lev = session.microLev || 2;
+    const levBtn = document.createElement("button");
+    levBtn.className = "perplev";
+    levBtn.type = "button";
+    levBtn.textContent = lev + "x";
+    levBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const steps = [2, 3, 5].filter((v) => v <= lim.maxLeverage);
+      session.microLev = steps[(steps.indexOf(lev) + 1) % steps.length];
+      perpStrip();
+    });
+
+    const mk = (isLong) => {
+      const b = document.createElement("button");
+      b.className = "perpbtn " + (isLong ? "long" : "short");
+      b.type = "button";
+      b.textContent = isLong ? "LONG" : "SHORT";
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        microOpen(isLong, session.microLev || lev, lim);
+      });
+      return b;
+    };
+
+    row.append(label, levBtn, mk(true), mk(false));
+    host.appendChild(row);
+  }
+
+  async function microOpen(isLong, leverage, lim) {
+    const t = session.token;
+    const usd = Math.min(lim.maxPosition, (settings.buyPresets && settings.buyPresets[0]) || 5);
+    try {
+      const pos = await send({
+        type: "microOpen",
+        chain: t.chain, address: t.address, symbol: t.symbol,
+        isLong, usd, leverage, entry: t.priceUsd, liquidityUsd: t.liquidity,
+      });
+      flipTo(reviewCard(
+        (isLong ? "Long opened" : "Short opened") + " · paper",
+        `$${usd} at ${leverage}x · liquidation ${F.price(pos.liq)}`,
+      ));
+      dismissLater();
+    } catch (e) {
+      flipTo(failCard("Not allowed", e.message || "rejected", false, null));
+    }
   }
 
   /* One order, start to finish: the worker prices and packs it, the wallet
