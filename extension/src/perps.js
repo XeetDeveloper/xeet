@@ -110,9 +110,9 @@ export async function markets(force) {
 
 /* Does this ticker have a perp at all? Most memecoins do not, and saying so is
    the difference between a product and a disappointment. */
-export async function marketFor(symbol) {
+export async function marketFor(symbol, fresh) {
   const s = String(symbol || "").replace(/^\$/, "").toUpperCase();
-  const { universe, mids } = await markets();
+  const { universe, mids } = await markets(fresh);
   const hit = universe.find((u) => u.name.toUpperCase() === s)
     || universe.find((u) => u.name.toUpperCase() === "k" + s.toUpperCase());
   if (!hit) return null;
@@ -122,6 +122,41 @@ export async function marketFor(symbol) {
 export async function accountState(address) {
   if (!address) return null;
   return post("/info", { type: "clearinghouseState", user: address });
+}
+
+/* The account, in the three numbers a position actually depends on: is there
+   an account at all, what is in it, and how much of that is still free.
+   Asked BEFORE the order rather than after, because "insufficient margin"
+   arriving as a rejection is the same information delivered too late. */
+export async function account(address) {
+  const st = await accountState(address).catch(() => null);
+  if (!st || !st.marginSummary) return { exists: false, equity: 0, free: 0, positions: [] };
+  const equity = Number(st.marginSummary.accountValue) || 0;
+  return {
+    exists: equity > 0 || (st.assetPositions || []).length > 0,
+    equity,
+    free: Number(st.withdrawable) || 0,
+    positions: positionsOf(st),
+  };
+}
+
+/* Open positions, flattened out of the exchange's shape. szi is signed: the
+   sign IS the direction, and it is also the size a close has to send back. */
+export function positionsOf(state) {
+  return ((state || {}).assetPositions || [])
+    .map((a) => a.position || {})
+    .filter((p) => Number(p.szi) !== 0)
+    .map((p) => ({
+      coin: p.coin,
+      size: Math.abs(Number(p.szi)),
+      isLong: Number(p.szi) > 0,
+      entry: Number(p.entryPx) || 0,
+      value: Number(p.positionValue) || 0,
+      pnl: Number(p.unrealizedPnl) || 0,
+      liq: Number(p.liquidationPx) || null,
+      leverage: Number((p.leverage || {}).value) || null,
+      margin: Number(p.marginUsed) || 0,
+    }));
 }
 
 /* ------------------------------------------------------------ the order */
@@ -187,6 +222,37 @@ export function typedDataFor(action, nonce) {
     primaryType: "Agent",
     message: { source: "a", connectionId },
   };
+}
+
+/* The exchange will not take an order worth less than this, and saying so
+   before signing is kinder than a rejection afterwards. */
+export const MIN_NOTIONAL = 10;
+
+/* Nonces must rise. Two actions inside the same millisecond — setting the
+   leverage and then sending the order — would otherwise collide, and the
+   exchange rejects the second one. */
+let lastNonce = 0;
+export function nextNonce() {
+  lastNonce = Math.max(Date.now(), lastNonce + 1);
+  return lastNonce;
+}
+
+/* Leverage has to be SET, not implied by the size.
+ *
+ * This is the part that quietly makes a perp product a lie. An account sits
+ * at whatever leverage it was last left on — 20x cross by default — and an
+ * order for $20 of notional is accepted whatever the panel says it is. The
+ * size would be right and the margin, the liquidation price and the risk
+ * would all belong to a different trade than the one the user asked for. So
+ * the leverage is pushed to the exchange first, and only then the order. */
+export function leveragePayload({ assetIndex, leverage, isCross = true, nonce }) {
+  const action = {
+    type: "updateLeverage",
+    asset: assetIndex,
+    isCross: !!isCross,
+    leverage: Math.max(1, Math.round(Number(leverage) || 1)),
+  };
+  return { action, nonce, typedData: typedDataFor(action, nonce) };
 }
 
 /* ------------------------------------------------------- the agent key */
@@ -313,6 +379,9 @@ export async function submit({ action, nonce, signature }) {
 function readable(msg) {
   const m = String(msg || "");
   if (/does not exist/i.test(m)) return "this wallet has no Hyperliquid account yet — deposit USDC there first";
+  if (/minimum value|at least \$10/i.test(m)) return "the exchange takes no order under $10 of exposure";
+  if (/leverage/i.test(m) && /invalid|exceed/i.test(m)) return "that leverage is above what this market allows";
+  if (/open interest|cap/i.test(m)) return "this market is at its open-interest cap right now";
   if (/insufficient margin|not enough/i.test(m)) return "not enough margin for this size";
   if (/reduce only/i.test(m)) return "nothing open to reduce";
   if (/Order has invalid price|tick/i.test(m)) return "price is outside what the market accepts right now";

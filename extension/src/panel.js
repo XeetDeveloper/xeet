@@ -36,7 +36,7 @@
    *
    * A literal, kept in step with the manifest by build.sh, which refuses to
    * build when they disagree. */
-  const BUILD = "1.9.0";
+  const BUILD = "1.10.0";
 
   const { CHAINS, FEE } = g.XEET_CFG;
   const F = g.XEET_FMT;
@@ -1357,8 +1357,14 @@
     host.insertBefore(face, el.tiles.nextSibling);
 
     const onExchange = !!session.perp;
+    const w = wallet();
+    /* On the exchange the account is the constraint, so it is read before the
+       face is drawn rather than discovered at submit time. */
+    const acct = onExchange && w.address
+      ? await send({ type: "perpAccount", address: w.address }).catch(() => null)
+      : null;
     const lim = onExchange
-      ? { ok: true, maxPosition: 1000, maxLeverage: session.perp.maxLeverage || 20, venue: "Hyperliquid" }
+      ? { ok: true, maxPosition: Infinity, maxLeverage: session.perp.maxLeverage || 20, venue: "Hyperliquid" }
       : await send({ type: "microLimits", liquidityUsd: Number(t.liquidity) || 0 }).catch(() => null);
     if (!session || session.token !== t || !levMode()) return;
 
@@ -1405,10 +1411,20 @@
     const note = document.createElement("p");
     note.className = "levnote";
     const liqLong = t.priceUsd ? t.priceUsd * (1 - (1 / lev) * 0.9) : null;
-    note.textContent = onExchange
-      ? `${lim.venue} · $${size} at ${lev}x = $${size * lev} of exposure`
-      : `PAPER · $${size} at ${lev}x · long liquidates near ${liqLong ? F.price(liqLong) : "—"}`
-        + ` · this pool allows $${lim.maxPosition} a position`;
+    const notional = size * lev;
+    const tooSmall = onExchange && notional < 10;
+    const noAccount = onExchange && (!w.address || (acct && !acct.exists));
+    note.textContent = !onExchange
+      ? `PAPER · $${size} at ${lev}x · long liquidates near ${liqLong ? F.price(liqLong) : "—"}`
+        + ` · this pool allows $${lim.maxPosition} a position`
+      : !w.address
+        ? "Connect a wallet to trade perps — the margin stays in your own exchange account"
+        : acct && !acct.exists
+          ? `${lim.venue} · this wallet has no account yet — deposit USDC on Arbitrum to trade`
+          : tooSmall
+            ? `${lim.venue} takes no order under $10 of exposure — $${size} at ${lev}x is $${notional}`
+            : `${lim.venue} · $${size} at ${lev}x = $${notional} of exposure`
+              + (acct ? ` · $${acct.free.toFixed(2)} free` : "");
 
     // the two directions
     const dirs = document.createElement("div");
@@ -1418,6 +1434,8 @@
       b.type = "button";
       b.className = "levbtn " + (isLong ? "long" : "short");
       b.innerHTML = `<b>${text}</b><span>$${size} · ${lev}x</span>`;
+      // A button that cannot possibly work should not look like one.
+      if (tooSmall || noAccount) b.disabled = true;
       b.addEventListener("click", (e) => {
         e.stopPropagation();
         if (onExchange) perpTrade(isLong, lev, size);
@@ -1427,7 +1445,51 @@
     });
 
     face.append(sizeRow, levRow, dirs, note);
-    if (!onExchange) openRows(face, t);
+    if (onExchange) exchangeRows(face, t, acct);
+    else openRows(face, t);
+  }
+
+  /* The same row, for a position that is really on the exchange. The numbers
+     are the exchange's own — entry, unrealised pnl, liquidation — and CLOSE
+     sends a reduce-only order for exactly what is open. */
+  function exchangeRows(face, t, acct) {
+    const name = String((session.perp || {}).name || "").toUpperCase();
+    const mine = ((acct || {}).positions || []).filter(
+      (p) => String(p.coin).toUpperCase() === name);
+
+    for (const pos of mine) {
+      const row = document.createElement("div");
+      row.className = "levopen" + (pos.pnl < 0 ? " down" : "");
+      const left = document.createElement("span");
+      left.textContent = `${pos.isLong ? "LONG" : "SHORT"} $${pos.value.toFixed(0)}`
+        + (pos.leverage ? ` · ${pos.leverage}x` : "")
+        + (pos.liq ? ` · liq ${F.price(pos.liq)}` : "");
+      const mid = document.createElement("b");
+      const sign = pos.pnl >= 0 ? "+" : "−";
+      mid.textContent = `${sign}$${Math.abs(pos.pnl).toFixed(2)}`;
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "levclose";
+      close.textContent = "CLOSE";
+      close.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        close.disabled = true;
+        try {
+          const w = wallet();
+          await send({
+            type: "perpClose", symbol: t.symbol, address: w.address,
+            slippagePct: (settings.slippageBps || 100) / 100,
+          });
+          flipTo(reviewCard("Position closed", `${name} · ${sign}$${Math.abs(pos.pnl).toFixed(2)}`));
+          dismissLater();
+        } catch (err) {
+          flipTo(failCard("The close did not go through", err.message || "Rejected", false, null));
+        }
+        levFace();
+      });
+      row.append(left, mid, close);
+      face.appendChild(row);
+    }
   }
 
   /* What is already open on this token, with the way out next to it. A
@@ -1527,7 +1589,7 @@
 
       const res = await send({
         type: "perpTap",
-        symbol: t.symbol, isBuy, usd, leverage,
+        symbol: t.symbol, isBuy, usd, leverage, address: w.address,
         slippagePct: (settings.slippageBps || 100) / 100,
       });
       const filled = (((res || {}).response || {}).data || {}).statuses || [];
@@ -1536,6 +1598,7 @@
         isBuy ? "Long opened" : "Short opened",
         px ? `${t.symbol} at ${px}` : `${t.symbol} · ${leverage}x`,
       ));
+      levFace();                 // the position is on the face on the way back
       dismissLater();
     } catch (e) {
       flipTo(failCard("The order did not go through", e.message || "Rejected", false, null));

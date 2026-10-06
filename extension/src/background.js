@@ -1253,7 +1253,7 @@ async function record(entry) {
  *
  * This is a literal, not the manifest's version: an old worker reading the new
  * manifest off disk would report the new number and prove nothing. */
-const BUILD = "1.9.0";
+const BUILD = "1.10.0";
 
 const HANDLERS = {
   // Not "build" — that name is already the swap builder further down, and an
@@ -1373,24 +1373,87 @@ const HANDLERS = {
   perpAgentConfirm: (m) =>
     perps.submit({ action: m.action, nonce: m.nonce, signature: m.signature }),
 
-  /* The order itself, signed by the agent — no wallet window at all. */
+  /* What the account can actually do, before anything is signed. */
+  perpAccount: (m) => perps.account(m.address),
+
+  /* The order itself, signed by the agent — no wallet window at all.
+   *
+   * Two actions, in this order, every time: the leverage is pushed to the
+   * exchange and then the order is sent. Skipping the first is what turns a
+   * panel that says 2x into a position that is really sitting at whatever the
+   * account was last left on — right size, wrong risk. */
   perpTap: async (m) => {
     const a = await turbo.agent();
     if (!a) throw new Error("one-tap perps are not enabled yet");
-    const market = await perps.marketFor(m.symbol);
+
+    // A fresh mid, not the cached one: an IOC priced off a minute-old number
+    // either misses the book or pays more slippage than the user allowed.
+    const market = await perps.marketFor(m.symbol, true);
     if (!market || !market.mid) throw new Error("no perp market for " + m.symbol);
+
+    const lev = Math.max(1, Math.min(Math.round(Number(m.leverage) || 1), market.maxLeverage || 1));
+    const usd = Number(m.usd) || 0;
+    const notional = usd * lev;
+    if (notional < perps.MIN_NOTIONAL) {
+      throw new Error(`the exchange takes no order under $${perps.MIN_NOTIONAL} of exposure — $${usd} at ${lev}x is $${notional.toFixed(0)}`);
+    }
+
+    const acct = await perps.account(m.address).catch(() => null);
+    if (acct && !acct.exists) {
+      throw new Error("this wallet has no Hyperliquid account yet — deposit USDC there first");
+    }
+    if (acct && acct.free > 0 && acct.free < usd) {
+      throw new Error(`only $${acct.free.toFixed(2)} free in the account — that is not enough margin for $${usd}`);
+    }
+
+    const setLev = perps.leveragePayload({
+      assetIndex: market.index, leverage: lev, isCross: true, nonce: perps.nextNonce(),
+    });
+    await perps.submit({
+      action: setLev.action, nonce: setLev.nonce,
+      signature: await perps.signWith(a.key, setLev.typedData),
+    });
+
     const slip = Math.min(Math.max(Number(m.slippagePct) || 1, 0.1), 5) / 100;
     const px = market.mid * (m.isBuy ? 1 + slip : 1 - slip);
-    const size = (Number(m.usd) * Math.max(1, Number(m.leverage) || 1)) / market.mid;
     const order = perps.orderPayload({
       assetIndex: market.index,
       isBuy: !!m.isBuy,
       price: perps.fmtPrice(px, market.szDecimals),
-      size: perps.fmtSize(size, market.szDecimals),
-      nonce: Date.now(),
+      size: perps.fmtSize(notional / market.mid, market.szDecimals),
+      nonce: perps.nextNonce(),
     });
     const signature = await perps.signWith(a.key, order.typedData);
     return perps.submit({ action: order.action, nonce: order.nonce, signature });
+  },
+
+  /* Out of a position, which is the half a demo never has. Reduce-only and
+     sized from what the exchange says is open, so it can neither flip the
+     position nor leave a tail behind. */
+  perpClose: async (m) => {
+    const a = await turbo.agent();
+    if (!a) throw new Error("one-tap perps are not enabled yet");
+    const market = await perps.marketFor(m.symbol, true);
+    if (!market || !market.mid) throw new Error("no perp market for " + m.symbol);
+
+    const acct = await perps.account(m.address);
+    const pos = acct.positions.find(
+      (p) => String(p.coin).toUpperCase() === market.name.toUpperCase());
+    if (!pos) throw new Error("nothing open on " + market.name);
+
+    const slip = Math.min(Math.max(Number(m.slippagePct) || 1, 0.5), 8) / 100;
+    const px = market.mid * (pos.isLong ? 1 - slip : 1 + slip);
+    const order = perps.orderPayload({
+      assetIndex: market.index,
+      isBuy: !pos.isLong,
+      price: perps.fmtPrice(px, market.szDecimals),
+      size: perps.fmtSize(pos.size, market.szDecimals),
+      reduceOnly: true,
+      nonce: perps.nextNonce(),
+    });
+    const signature = await perps.signWith(a.key, order.typedData);
+    const res = await perps.submit({ action: order.action, nonce: order.nonce, signature });
+    return { res, closed: pos };
   },
 
   turboInfo: async () => ({
