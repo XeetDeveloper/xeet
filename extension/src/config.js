@@ -179,6 +179,11 @@
     // buy spot with, and a shared list made one of the two wrong.
     perpPresets: [5, 10, 25],  // USD of margin
     perpLeverage: 2,
+  // Which face the deck opens on. Remembered rather than reset, because
+  // somebody trading leverage is trading leverage all evening, and making
+  // them tap PERPS again on every coin is the interface disagreeing with
+  // what they are plainly doing.
+  lastFace: "spot",
     sellPresets: [25, 50, 100],// percent of position
     hoverDelay: 130,           // ms before the panel opens
     scanCashtags: true,

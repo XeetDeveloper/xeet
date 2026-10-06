@@ -166,7 +166,16 @@
   let closeTimer = null, refreshTimer = null;
   let openToken = 0;           // guards against a slow answer for a stale hover
 
-  send({ type: "settings" }).then((s) => { settings = s; }).catch(() => {});
+  /* Settings are asked for again on every open, not once at boot.
+     The one boot-time fetch raced the worker waking up: when it lost, the
+     panel kept the stub above for the rest of the page's life, and anything
+     the user had configured — sizes, the remembered face — silently did
+     nothing. A second message per open costs nothing and cannot go stale. */
+  async function loadSettings() {
+    try { settings = await send({ type: "settings" }); } catch { /* keep what we have */ }
+    return settings;
+  }
+  loadSettings();
   let turbo = { settings: { on: false }, account: null, svm: null };
 
   /* The trading account that can sign on THIS chain. There is one per family
@@ -427,7 +436,16 @@
     session = {
       anchor, spec, token: null, range: "24h", side: "buy",
       pay: null, screening: null, flowWindow: "m5", quoting: false, viewOnly: false,
+      mode: settings.lastFace === "lev" ? "lev" : "spot",
+      modePicked: false,        // true once the user touches the switch here
     };
+    /* The face the last coin was left on, applied as soon as it is known and
+       only while the user has not chosen one for this coin. */
+    loadSettings().then(() => {
+      if (my !== openToken || !session || session.modePicked) return;
+      session.mode = settings.lastFace === "lev" ? "lev" : "spot";
+      tiles();
+    });
     resetFaces();
     skeleton(spec);
     host.classList.remove("xeet-hidden");
@@ -1156,9 +1174,9 @@
           if (!session || session.token !== t) return;
           session.perp = m || null;
           session.perpReady = true;        // the switch appears once we know
-          modeSwitch();
+          tiles();                         // and a remembered PERPS face opens
         })
-        .catch(() => { if (session && session.token === t) { session.perpReady = true; modeSwitch(); } });
+        .catch(() => { if (session && session.token === t) { session.perpReady = true; tiles(); } });
     }
 
     setText("bname", (t.symbol || "?").toUpperCase());
@@ -1289,6 +1307,11 @@
    * gets a sentence instead of a button. */
   const LEV_STEPS = [2, 3, 5, 10, 20];
 
+  /* The remembered face is a preference, not a promise: until the worker has
+     answered whether this ticker can be traded with leverage at all, the deck
+     stays on the amounts rather than going blank. */
+  const levMode = () => !!session && session.mode === "lev" && !!session.perpReady;
+
   function modeSwitch() {
     const host = el.tiles && el.tiles.parentElement;
     if (!host) return;
@@ -1298,7 +1321,7 @@
 
     const row = document.createElement("div");
     row.className = "modesw";
-    [["spot", "SPOT"], ["lev", session.perp ? "PERP" : "LEVERAGE"]].forEach(([id, text]) => {
+    [["spot", "SPOT"], ["lev", "PERPS"]].forEach(([id, text]) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "modetab" + ((session.mode || "spot") === id ? " on" : "");
@@ -1306,6 +1329,9 @@
       b.addEventListener("click", (e) => {
         e.stopPropagation();
         session.mode = id;
+        session.modePicked = true;
+        settings.lastFace = id;
+        send({ type: "saveSettings", patch: { lastFace: id } }).catch(() => {});
         tiles();
       });
       row.appendChild(b);
@@ -1322,8 +1348,8 @@
        drawer, and the leverage face is taller than four tiles — without this
        the directions are clipped off the bottom of the panel. */
     const loupe = host.closest(".loupe");
-    if (loupe) loupe.classList.toggle("levmode", !!session && session.mode === "lev");
-    if (!session || session.mode !== "lev") return;
+    if (loupe) loupe.classList.toggle("levmode", levMode());
+    if (!levMode()) return;
 
     const t = session.token;
     const face = document.createElement("div");
@@ -1334,7 +1360,7 @@
     const lim = onExchange
       ? { ok: true, maxPosition: 1000, maxLeverage: session.perp.maxLeverage || 20, venue: "Hyperliquid" }
       : await send({ type: "microLimits", liquidityUsd: Number(t.liquidity) || 0 }).catch(() => null);
-    if (!session || session.token !== t || session.mode !== "lev") return;
+    if (!session || session.token !== t || !levMode()) return;
 
     if (!lim || !lim.ok) {
       face.innerHTML = '<p class="levnote"></p>';
@@ -1411,11 +1437,11 @@
     const all = await send({ type: "microList" }).catch(() => []);
     const mine = (all || []).filter(
       (p) => !p.closedAt && p.address === t.address && p.chain === t.chain);
-    if (!mine.length || !session || session.token !== t || session.mode !== "lev") return;
+    if (!mine.length || !session || session.token !== t || !levMode()) return;
 
     for (const pos of mine) {
       const v = await send({ type: "microValue", id: pos.id, mark: t.priceUsd }).catch(() => null);
-      if (!session || session.token !== t || session.mode !== "lev") return;
+      if (!session || session.token !== t || !levMode()) return;
       const row = document.createElement("div");
       row.className = "levopen" + (v && v.pnl < 0 ? " down" : "");
       const left = document.createElement("span");
@@ -1526,7 +1552,7 @@
     box.innerHTML = "";
     // In leverage mode the spot amounts step aside entirely — two sets of
     // sizes on screen is how somebody buys when they meant to go long.
-    box.hidden = session && session.mode === "lev";
+    box.hidden = levMode();
     if (session.viewOnly) return;
     const sell = session.side === "sell";
     const presets = sell ? settings.sellPresets : settings.buyPresets;

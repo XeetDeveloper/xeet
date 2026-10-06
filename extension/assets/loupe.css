@@ -1468,6 +1468,9 @@
   flex: 1; padding: 7px 0; border: 0; border-radius: 8px; cursor: pointer;
   background: transparent; color: var(--lp-muted, #8A9199);
   font: 800 10px/1 ui-monospace, Menlo, monospace; letter-spacing: .16em;
+  /* Letter-spacing is added AFTER the last letter too, so centred text sits
+     one space to the left of centre. The indent gives that space back. */
+  text-align: center; text-indent: .16em;
   transition: background .12s ease, color .12s ease;
 }
 .xeet-lp .modetab:hover { color: var(--lp-paper, #F2F4F3); }
