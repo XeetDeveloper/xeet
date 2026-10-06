@@ -23,6 +23,8 @@ marketing site that ships it.
 ```
 site/         the landing page (static, deployed to Vercel)
 extension/    the Chrome extension — the actual product
+vault-sol/    the leverage vault on Solana: Anchor program, tests, local venue
+vault/        the same vault for EVM chains, in Solidity
 tools/        the rendered artwork: the social card and the store assets
 build.sh      packages extension/ twice — unpacked install, and store upload
 deploy.py     uploads site/ to Vercel via the REST API
@@ -76,9 +78,64 @@ original. A wrong slug fails silently and looks like a data problem, which is
 why `src/config.js` carries both slugs per chain and both were checked by
 calling the indexes.
 
+### Perps
+
+The deck has two faces: **SPOT** is the amounts, **PERPS** is its own face with
+position sizes, leverage, long and short, and the liquidation price written
+under the buttons. The face you used last is the one the next coin opens on.
+
+Which venue is behind it depends on the coin:
+
+- **A ticker with an exchange market** trades on Hyperliquid. Leverage is
+  pushed to the exchange before every order (an account otherwise sits at
+  whatever it was last left on, and "2x" would be a different trade), open
+  positions are read back with the exchange's own entry, PnL and liquidation
+  price, and **CLOSE** sends a reduce-only order for exactly what is open. The
+  wallet approves an agent key once; that key can trade and can never
+  withdraw.
+- **A coin too young for any exchange** trades against the Xeet vault, below.
+  Until a vault is deployed for that chain, the face says so instead of
+  offering buttons.
+
+A position counts as opened when the chain confirms it, not when a node
+accepts the transaction.
+
+### The vault
+
+Leverage on a two-hour-old coin is a cheque written to whoever can move its
+pool: shifting a $20K pool ten percent costs about $500, so any venue where a
+ten percent move pays out more than that is funding its own attacker. The vault
+is shaped around that number.
+
+- A position's payout is capped at a multiple of its margin, set per market,
+  so the house's liability is a number rather than a hope.
+- Margin per position and open notional per coin are capped from the pool's
+  own depth.
+- Every open position is pre-funded: the vault refuses to open one it could
+  not pay in full, and the owner can only withdraw what is left after all of
+  them are covered.
+- Prices are signed by an operator and verified on chain (the runtime's ed25519
+  precompile on Solana, EIP-712 on EVM), usable for two minutes. If the
+  operator goes quiet for an hour, every trader can leave with their margin
+  without anybody's permission.
+
+`vault-sol/` holds the Anchor program and 26 tests that run the real binary in
+a real SVM with precompiles on, including one that checks the signed message
+byte for byte against the price service. `vault/` is the Solidity version with
+28 tests and a solvency invariant. `vault-sol/local/run.sh` puts the whole
+venue on a laptop validator at the live price, for nothing, and drives it from
+the panel. Mainnet deployment is not done yet.
+
+### Trade cards
+
+After a trade, the finish card can turn it into an image made to be posted:
+the token, the side, the size and, when this device's own history covers the
+whole position, the PnL. Nothing on it is invented and nothing identifies the
+wallet — no address, no balance.
+
 ### Install
 
-Unpacked, from the site: <https://xeet-two.vercel.app/install> — or
+Unpacked, from the site: <https://xeet.click/install> — or
 locally, `chrome://extensions` → Developer mode → **Load unpacked** →
 `extension/`.
 

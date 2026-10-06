@@ -15,3 +15,9 @@ promo/first-frame-*.png
 .DS_Store
 node_modules/
 __pycache__/
+
+# Foundry dependencies: installed with `forge install`, never vendored here.
+vault/lib/
+
+# Internal pre-publish notes for the predeploy check.
+.predeploy-allow
