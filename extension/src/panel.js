@@ -36,7 +36,7 @@
    *
    * A literal, kept in step with the manifest by build.sh, which refuses to
    * build when they disagree. */
-  const BUILD = "1.8.0";
+  const BUILD = "1.9.0";
 
   const { CHAINS, FEE } = g.XEET_CFG;
   const F = g.XEET_FMT;
@@ -1152,8 +1152,13 @@
     if (session.perp === undefined) {
       session.perp = null;
       send({ type: "perpMarket", symbol: t.symbol })
-        .then((m) => { if (session && session.token === t) { session.perp = m || null; perpStrip(); } })
-        .catch(() => {});
+        .then((m) => {
+          if (!session || session.token !== t) return;
+          session.perp = m || null;
+          session.perpReady = true;        // the switch appears once we know
+          modeSwitch();
+        })
+        .catch(() => { if (session && session.token === t) { session.perpReady = true; modeSwitch(); } });
     }
 
     setText("bname", (t.symbol || "?").toUpperCase());
@@ -1269,120 +1274,183 @@
     if (!holds && session.side === "sell") setSide("buy");
   }
 
-  /* ----------------------------------------------------------- perps */
-  /* Most tokens on a timeline have no perp market, so this row exists only
-     when one does: the strip is built and removed, never hidden, so a token
-     without a market cannot show a disabled control nobody can use.
-     Leverage multiplies the size, not the risk disclosure — the liquidation
-     price comes from the exchange after the fill, in the popup. */
-  const LEVERAGE = [2, 5, 10, 20];
+  /* --------------------------------------------------- the leverage face */
+  /* Its own face, not a strip squeezed under the amounts.
+   *
+   * Spot and leverage are different trades with different sizes, different
+   * risk and different vocabulary, and sharing one row made both of them
+   * worse: the sizes meant two things at once and the direction buttons had
+   * nowhere to be. So the deck gets a switch, and each side gets the room it
+   * needs — sizes, leverage, a liquidation price and the two directions.
+   *
+   * Which venue is behind it depends on the token, and the face says so: a
+   * ticker with an exchange market trades on Hyperliquid, a young coin trades
+   * against the capped book in src/micro.js, and a pool too thin for either
+   * gets a sentence instead of a button. */
+  const LEV_STEPS = [2, 3, 5, 10, 20];
 
-  function perpStrip() {
+  function modeSwitch() {
     const host = el.tiles && el.tiles.parentElement;
-    const old = host && host.querySelector(".perpstrip");
+    if (!host) return;
+    const old = host.querySelector(".modesw");
     if (old) old.remove();
-    if (!host || !session || session.viewOnly || session.side === "sell") return;
+    if (!session || session.viewOnly || !session.perpReady) return;
 
-    /* No exchange market? Then the coin is young, which is exactly the case
-       the capped product exists for — see src/micro.js for why the caps are
-       the product rather than a restriction on it. */
-    if (!session.perp) return microStrip(host);
-
-    const m = session.perp;
-    const lev = session.perpLev || Math.min(5, m.maxLeverage || 5);
     const row = document.createElement("div");
-    row.className = "perpstrip";
-
-    const label = document.createElement("span");
-    label.className = "perplbl";
-    label.textContent = "PERP " + m.name;
-
-    const levBtn = document.createElement("button");
-    levBtn.className = "perplev";
-    levBtn.type = "button";
-    levBtn.textContent = lev + "x";
-    levBtn.title = "Leverage — up to " + (m.maxLeverage || "?") + "x";
-    levBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const options = LEVERAGE.filter((v) => v <= (m.maxLeverage || 20));
-      session.perpLev = options[(options.indexOf(lev) + 1) % options.length];
-      perpStrip();
-    });
-
-    const mk = (side) => {
+    row.className = "modesw";
+    [["spot", "SPOT"], ["lev", session.perp ? "PERP" : "LEVERAGE"]].forEach(([id, text]) => {
       const b = document.createElement("button");
-      b.className = "perpbtn " + side;
       b.type = "button";
-      b.textContent = side.toUpperCase();
+      b.className = "modetab" + ((session.mode || "spot") === id ? " on" : "");
+      b.textContent = text;
       b.addEventListener("click", (e) => {
         e.stopPropagation();
-        perpTrade(side === "long", session.perpLev || lev);
+        session.mode = id;
+        tiles();
       });
-      return b;
-    };
-
-    row.append(label, levBtn, mk("long"), mk("short"));
-    host.appendChild(row);
+      row.appendChild(b);
+    });
+    host.insertBefore(row, host.firstChild);
   }
 
-  /* ------------------------------- leverage on a coin with no exchange */
-  /* The strip appears only when the pool can carry it, and says what it can
-     carry: a pool too thin for any honest size says so instead of offering a
-     button that would rob whoever took it. */
-  async function microStrip(host) {
-    const t = session.token;
-    const liq = Number(t && t.liquidity) || 0;
-    const lim = await send({ type: "microLimits", liquidityUsd: liq }).catch(() => null);
-    // The answer arrives after an await, by which time the panel may have moved
-    // on to another token or drawn another strip. Both were happening: two
-    // identical rows, one of them priced for a coin no longer on screen.
-    if (!lim || !lim.ok || !session || session.token !== t) return;
-    const stale = host.querySelector(".microstrip");
+  async function levFace() {
+    const host = el.tiles && el.tiles.parentElement;
+    if (!host) return;
+    const stale = host.querySelector(".levface");
     if (stale) stale.remove();
+    /* The deck's reveal animation caps the height of the amounts and the
+       drawer, and the leverage face is taller than four tiles — without this
+       the directions are clipped off the bottom of the panel. */
+    const loupe = host.closest(".loupe");
+    if (loupe) loupe.classList.toggle("levmode", !!session && session.mode === "lev");
+    if (!session || session.mode !== "lev") return;
 
-    const usd = Math.min(lim.maxPosition, (settings.buyPresets && settings.buyPresets[0]) || 5);
-    const lev = session.microLev || 2;
+    const t = session.token;
+    const face = document.createElement("div");
+    face.className = "levface";
+    host.insertBefore(face, el.tiles.nextSibling);
 
-    const row = document.createElement("div");
-    row.className = "microstrip";
+    const onExchange = !!session.perp;
+    const lim = onExchange
+      ? { ok: true, maxPosition: 1000, maxLeverage: session.perp.maxLeverage || 20, venue: "Hyperliquid" }
+      : await send({ type: "microLimits", liquidityUsd: Number(t.liquidity) || 0 }).catch(() => null);
+    if (!session || session.token !== t || session.mode !== "lev") return;
 
-    const mk = (isLong) => {
+    if (!lim || !lim.ok) {
+      face.innerHTML = '<p class="levnote"></p>';
+      face.querySelector(".levnote").textContent =
+        "This pool is too thin to carry leverage safely. Moving its price costs less than the book could pay out, "
+        + "so there is no size at which this would be fair.";
+      return;
+    }
+
+    const sizes = (settings.perpPresets || [5, 10, 25]).filter((v) => v <= lim.maxPosition);
+    if (!sizes.length) sizes.push(lim.maxPosition);
+    const lev = session.lev || Math.min(settings.perpLeverage || 2, lim.maxLeverage);
+    session.lev = lev;
+    const size = session.levSize && sizes.includes(session.levSize) ? session.levSize : sizes[0];
+    session.levSize = size;
+
+    // sizes
+    const sizeRow = document.createElement("div");
+    sizeRow.className = "levrow";
+    sizes.forEach((v) => {
       const b = document.createElement("button");
-      b.className = "microbtn " + (isLong ? "long" : "short");
       b.type = "button";
-      b.innerHTML = `<b>${isLong ? "LONG" : "SHORT"}</b><span>$${usd}</span>`;
-      b.addEventListener("click", (e) => {
-        e.stopPropagation();
-        microOpen(isLong, session.microLev || lev, lim);
-      });
-      return b;
-    };
-
-    // The leverage sits between the two sides, because it belongs to both and
-    // because that is the only place it cannot be mistaken for part of one.
-    const levBtn = document.createElement("button");
-    levBtn.className = "microlev";
-    levBtn.type = "button";
-    levBtn.innerHTML = `<b>${lev}x</b><span>PAPER</span>`;
-    levBtn.title = `This pool allows $${lim.maxPosition} per position at up to ${lim.maxLeverage}x. `
-      + `Moving its price 10% costs about $${lim.costToMove10}; the whole book cannot pay more than that. `
-      + `Positions are paper until the vault is live.`;
-    levBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const steps = [2, 3, 5].filter((v) => v <= lim.maxLeverage);
-      session.microLev = steps[(steps.indexOf(lev) + 1) % steps.length];
-      perpStrip();
+      b.className = "levchip" + (v === size ? " on" : "");
+      b.textContent = "$" + v;
+      b.addEventListener("click", (e) => { e.stopPropagation(); session.levSize = v; levFace(); });
+      sizeRow.appendChild(b);
     });
 
-    row.append(mk(true), levBtn, mk(false));
-    // Above the sizes, not below them: this is a way to trade, not a footnote
-    // to the other one.
-    host.insertBefore(row, el.tiles);
+    // leverage
+    const levRow = document.createElement("div");
+    levRow.className = "levrow";
+    LEV_STEPS.filter((v) => v <= lim.maxLeverage).forEach((v) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "levchip" + (v === lev ? " on" : "");
+      b.textContent = v + "x";
+      b.addEventListener("click", (e) => { e.stopPropagation(); session.lev = v; levFace(); });
+      levRow.appendChild(b);
+    });
+
+    // what it means, in one line
+    const note = document.createElement("p");
+    note.className = "levnote";
+    const liqLong = t.priceUsd ? t.priceUsd * (1 - (1 / lev) * 0.9) : null;
+    note.textContent = onExchange
+      ? `${lim.venue} · $${size} at ${lev}x = $${size * lev} of exposure`
+      : `PAPER · $${size} at ${lev}x · long liquidates near ${liqLong ? F.price(liqLong) : "—"}`
+        + ` · this pool allows $${lim.maxPosition} a position`;
+
+    // the two directions
+    const dirs = document.createElement("div");
+    dirs.className = "levdirs";
+    [[true, "LONG"], [false, "SHORT"]].forEach(([isLong, text]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "levbtn " + (isLong ? "long" : "short");
+      b.innerHTML = `<b>${text}</b><span>$${size} · ${lev}x</span>`;
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (onExchange) perpTrade(isLong, lev, size);
+        else microOpen(isLong, lev, lim, size);
+      });
+      dirs.appendChild(b);
+    });
+
+    face.append(sizeRow, levRow, dirs, note);
+    if (!onExchange) openRows(face, t);
   }
 
-  async function microOpen(isLong, leverage, lim) {
+  /* What is already open on this token, with the way out next to it. A
+     position you cannot close from the same place you opened it is not a
+     position, it is a trap. */
+  async function openRows(face, t) {
+    const all = await send({ type: "microList" }).catch(() => []);
+    const mine = (all || []).filter(
+      (p) => !p.closedAt && p.address === t.address && p.chain === t.chain);
+    if (!mine.length || !session || session.token !== t || session.mode !== "lev") return;
+
+    for (const pos of mine) {
+      const v = await send({ type: "microValue", id: pos.id, mark: t.priceUsd }).catch(() => null);
+      if (!session || session.token !== t || session.mode !== "lev") return;
+      const row = document.createElement("div");
+      row.className = "levopen" + (v && v.pnl < 0 ? " down" : "");
+      const left = document.createElement("span");
+      left.textContent = `${pos.isLong ? "LONG" : "SHORT"} $${pos.usd} · ${pos.leverage}x`;
+      const mid = document.createElement("b");
+      // One sign, one source: a row reading "−$0.01 (-0%)" makes the reader
+      // check which of the two numbers is lying.
+      const sign = v && v.pnl >= 0 ? "+" : "−";
+      mid.textContent = v
+        ? `${sign}$${Math.abs(v.pnl).toFixed(2)} (${sign}${Math.abs(v.pct).toFixed(1)}%)`
+        : "—";
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "levclose";
+      close.textContent = v && v.liquidated ? "LIQUIDATED" : "CLOSE";
+      close.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        close.disabled = true;
+        const done = await send({ type: "microClose", id: pos.id, mark: t.priceUsd }).catch(() => null);
+        if (done) {
+          flipTo(reviewCard(
+            "Position closed · paper",
+            `${done.pnl >= 0 ? "+" : "−"}$${Math.abs(done.pnl).toFixed(2)} on $${done.usd} at ${done.leverage}x`,
+          ));
+          dismissLater();
+        }
+        levFace();
+      });
+      row.append(left, mid, close);
+      face.appendChild(row);
+    }
+  }
+
+  async function microOpen(isLong, leverage, lim, usd) {
     const t = session.token;
-    const usd = Math.min(lim.maxPosition, (settings.buyPresets && settings.buyPresets[0]) || 5);
     try {
       const pos = await send({
         type: "microOpen",
@@ -1393,6 +1461,7 @@
         (isLong ? "Long opened" : "Short opened") + " · paper",
         `$${usd} at ${leverage}x · liquidation ${F.price(pos.liq)}`,
       ));
+      levFace();                 // so the new position is there on the way back
       dismissLater();
     } catch (e) {
       flipTo(failCard("Not allowed", e.message || "rejected", false, null));
@@ -1402,10 +1471,10 @@
   /* One order, start to finish: the worker prices and packs it, the wallet
      signs the typed data, the worker posts it to the exchange. Xeet never
      holds anything — the margin lives in the user's own exchange account. */
-  async function perpTrade(isBuy, leverage) {
+  async function perpTrade(isBuy, leverage, size) {
     if (session.busy) return;
     const t = session.token;
-    const usd = (settings.buyPresets && settings.buyPresets[0]) || 25;
+    const usd = size || (settings.perpPresets && settings.perpPresets[0]) || 10;
     const w = wallet();
     if (!w.address) return walletMenu();
 
@@ -1455,6 +1524,9 @@
     const box = el.tiles;
     if (!box) return;
     box.innerHTML = "";
+    // In leverage mode the spot amounts step aside entirely — two sets of
+    // sizes on screen is how somebody buys when they meant to go long.
+    box.hidden = session && session.mode === "lev";
     if (session.viewOnly) return;
     const sell = session.side === "sell";
     const presets = sell ? settings.sellPresets : settings.buyPresets;
@@ -1485,7 +1557,8 @@
       box.appendChild(tile);
     });
 
-    perpStrip();
+    modeSwitch();
+    levFace();
 
     // The custom tile: a field, not a button. The dollar sign is a sibling so
     // the caret can never land in front of it.

@@ -1253,7 +1253,7 @@ async function record(entry) {
  *
  * This is a literal, not the manifest's version: an old worker reading the new
  * manifest off disk would report the new number and prove nothing. */
-const BUILD = "1.8.0";
+const BUILD = "1.9.0";
 
 const HANDLERS = {
   // Not "build" — that name is already the swap builder further down, and an
@@ -1307,6 +1307,16 @@ const HANDLERS = {
     micros.unshift(pos);
     await chrome.storage.local.set({ micros: micros.slice(0, 100) });
     return pos;
+  },
+
+  /* What a position is worth, answered here rather than in the panel: the
+     panel drawing its own pnl is how a close ends up paying a different
+     number than the row promised. */
+  microValue: async (m) => {
+    const { micros } = await chrome.storage.local.get({ micros: [] });
+    const pos = micros.find((p) => p.id === m.id);
+    if (!pos) throw new Error("no such position");
+    return micro.valueOf(pos, Number(m.mark) || pos.entry);
   },
 
   microClose: async (m) => {

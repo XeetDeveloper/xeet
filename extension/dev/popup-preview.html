@@ -127,6 +127,14 @@
           <div><b>Quick sell</b><span>Tap amounts on the sell face, as a share of the position</span></div>
           <div class="inputs" id="sells"></div>
         </div>
+        <div class="setting col">
+          <div><b>Position sizes</b><span>Margin per position on the leverage face, in dollars</span></div>
+          <div class="inputs" id="perps"></div>
+        </div>
+        <div class="setting col">
+          <div><b>Default leverage</b><span>What the leverage face opens on</span></div>
+          <div class="chips" id="perp-lev"></div>
+        </div>
       </div>
     </div>
 
@@ -134,12 +142,12 @@
       <div class="grouplabel">One-click trading</div>
       <div class="card">
         <div class="setting">
-          <div><b>Tap an amount, no wallet prompt</b><span>Off by default. Uses a separate trading account on Robinhood Chain — your own wallet never signs for it. Read the note under this section before funding it.</span></div>
+          <div><b>Tap an amount, no wallet prompt</b><span>Off by default. Uses separate trading accounts — one on Robinhood Chain, one on Solana — and your own wallet never signs for either. Read the note under this section before funding them.</span></div>
           <button class="power" id="turbo-on" type="button" role="switch" aria-checked="false"><span class="knob"></span></button>
         </div>
         <div id="turbo-body" hidden>
           <div class="setting col">
-            <div><b>Trading account</b><span id="turbo-warn">Runs on Robinhood Chain. Buys and sells both go from this account; sending it home puts the ETH back in your wallet.</span></div>
+            <div><b>Robinhood Chain account</b><span id="turbo-warn">Buys and sells both go from this account; sending it home puts the ETH back in your wallet.</span></div>
             <div class="acct" id="turbo-acct" hidden>
               <span class="k">Address</span><b id="turbo-addr">—</b>
               <span class="k">Balance</span><b id="turbo-bal">—</b>
@@ -187,19 +195,44 @@
       </div>
       <p class="hint" id="turbo-note"></p>
 
-      <!-- The account one-click used to run on. Shown only when there is one. -->
-      <div class="card legacy" id="turbo-legacy" hidden>
+      <!-- Solana's own account. A separate card rather than a second address
+           on the one above, because it is a different key with a different
+           safety story, and the two are never interchangeable. -->
+      <div class="card" id="turbo-svm-card" hidden>
         <div class="setting col">
-          <div><b>Your old Solana trading account</b><span>One-click runs on Robinhood Chain now, so this account cannot trade. It is still here so you can empty it.</span></div>
-          <div class="acct">
-            <span class="k">Address</span><b id="legacy-addr">—</b>
-            <span class="k">Balance</span><b id="legacy-bal">—</b>
+          <div><b>Solana account</b><span id="svm-warn">Trades SPL tokens through Jupiter. This key is generated inside the browser and cannot be read back out — not by a page, not by Xeet.</span></div>
+          <div class="acct" id="svm-acct" hidden>
+            <span class="k">Address</span><b id="svm-addr">—</b>
+            <span class="k">Balance</span><b id="svm-bal">—</b>
           </div>
+          <ol class="rows tiny" id="svm-holds"></ol>
           <div class="acctbtns">
-            <button class="chip" id="legacy-home" type="button">Send it home</button>
-            <button class="chip" id="legacy-wipe" type="button">Delete it</button>
+            <button class="chip" id="svm-make" type="button">Create the account</button>
+            <button class="chip" id="svm-bring" type="button">Use a key I have</button>
+            <button class="chip" id="svm-copy" type="button" hidden>Copy address</button>
+            <button class="chip" id="svm-refresh" type="button" hidden>Check balance</button>
+            <button class="chip" id="svm-home" type="button" hidden>Send it home</button>
+            <button class="chip" id="svm-wipe" type="button" hidden>Delete it</button>
           </div>
-          <p class="hint" id="legacy-note"></p>
+          <p class="hint" id="svm-home-note" hidden></p>
+
+          <div class="bring" id="svm-bring-box" hidden>
+            <div class="warn">
+              <b>Paste a key for a burner, not your main wallet.</b>
+              <span>The bytes are imported once and stored as a key that cannot be
+              exported, so Xeet signs with it and cannot read it — but anything you
+              put on this account can still be traded by one tap. Never a seed
+              phrase; this refuses one.</span>
+            </div>
+            <textarea id="svm-secret" rows="2" spellcheck="false" autocomplete="off"
+                      placeholder="Private key — base58 from your wallet, or a [1,2,…] array"
+                      aria-label="Solana private key"></textarea>
+            <div class="acctbtns">
+              <button class="chip go" id="svm-bring-do" type="button">Import it</button>
+              <button class="chip" id="svm-bring-cancel" type="button">Cancel</button>
+            </div>
+            <p class="hint" id="svm-bring-note"></p>
+          </div>
         </div>
       </div>
     </div>
@@ -237,7 +270,8 @@
 <script src="../src/chains.js"></script>
 <script src="../src/config.js"></script>
 <script src="../src/format.js"></script>
-<script>window.__XEET_MANIFEST_VERSION = "1.5.0";</script>
+<script src="../src/card.js"></script>
+<script>window.__XEET_MANIFEST_VERSION = "1.9.0";</script>
 <script src="shim.js"></script>
 <script type="module" src="../src/background.js"></script>
 <script src="../popup/popup.js"></script>

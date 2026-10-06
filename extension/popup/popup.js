@@ -541,7 +541,7 @@
       const input = document.createElement("input");
       input.type = "text";
       input.inputMode = "decimal";
-      input.value = key === "sellPresets" ? v + "%" : "$" + v;
+      input.value = key === "sellPresets" ? v + "%" : "$" + v;   // margin and dollars read the same
       input.addEventListener("focus", () => { input.value = String(settings[key][i]); });
       input.addEventListener("blur", () => {
         const n = parseFloat(input.value);
@@ -568,6 +568,9 @@
       async (v) => { settings.hoverDelay = v; await send({ type: "saveSettings", patch: { hoverDelay: v } }); });
 
     presetInputs($("#buys"), "buyPresets");
+    presetInputs($("#perps"), "perpPresets");
+    chips($("#perp-lev"), [2, 3, 5], settings.perpLeverage || 2, (v) => v + "x",
+      async (v) => { settings.perpLeverage = v; await send({ type: "saveSettings", patch: { perpLeverage: v } }); });
     presetInputs($("#sells"), "sellPresets");
 
     for (const k of ["scanCashtags", "scanAddresses"]) {

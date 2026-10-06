@@ -175,6 +175,10 @@
     on: true,
     slippageBps: 100,          // 1%
     buyPresets: [25, 50, 100], // USD
+    // Positions are their own sizes: nobody opens leverage in the amount they
+    // buy spot with, and a shared list made one of the two wrong.
+    perpPresets: [5, 10, 25],  // USD of margin
+    perpLeverage: 2,
     sellPresets: [25, 50, 100],// percent of position
     hoverDelay: 130,           // ms before the panel opens
     scanCashtags: true,

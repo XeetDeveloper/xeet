@@ -583,6 +583,8 @@
 .xeet-lp .amounts{ max-height:0; opacity:0; overflow:hidden; transform:translateY(-6px);
   transition:max-height .36s cubic-bezier(.2,.85,.3,1), opacity .26s ease, transform .36s cubic-bezier(.2,.85,.3,1);
   pointer-events:none; }
+.xeet-lp .loupe.open.levmode .amounts{ max-height:340px; }
+.xeet-lp .loupe.open.levmode .drawer{ max-height:560px; }
 .xeet-lp .loupe.open .amounts{ max-height:150px; opacity:1; transform:none; margin-top:10px; pointer-events:auto; }
 .xeet-lp .tiles{ display:grid; grid-template-columns:repeat(4,1fr); gap:9px; }
 .xeet-lp .tile{ position:relative; height:62px; border-radius:13px; background:linear-gradient(150deg,#141a1f,#0c0f13);
@@ -1450,62 +1452,79 @@
    failing — it sits above the faces rather than under them. */
 .xeet-lp .xeet-orphan{ position:relative; z-index:40; }
 
-/* -------------------------------------------------------------- perps */
-/* A single row under the sizes, present only for tickers that actually have
-   a perp market. Long and short carry the only colour in the panel, because
-   picking the wrong side is the one mistake the interface can prevent. */
-.xeet-lp .perpstrip {
-  display: flex; align-items: center; gap: 8px;
-  margin-top: 8px; padding: 8px 10px;
-  border: 1px solid var(--lp-line, #23272B); border-radius: 12px;
-  background: rgba(255, 255, 255, .03);
+/* --------------------------------------------------------- the two faces */
+/* The deck holds two trades, not one trade with extras. SPOT is the amounts;
+   LEVERAGE is its own face with its own sizes, its own multiplier and the two
+   directions — because a long is not a bigger buy, and a row of buttons
+   wedged under the amounts made both of them look like a mistake.
+   The switch only appears once we know whether leverage is possible at all. */
+.xeet-lp .modesw {
+  display: flex; gap: 4px; margin: 0 0 8px;
+  padding: 3px; border-radius: 11px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid var(--lp-line, #23272B);
 }
-.xeet-lp .perplbl {
-  font: 600 10px/1 ui-monospace, Menlo, monospace; letter-spacing: .14em;
-  color: var(--lp-muted, #8A9199); white-space: nowrap;
+.xeet-lp .modetab {
+  flex: 1; padding: 7px 0; border: 0; border-radius: 8px; cursor: pointer;
+  background: transparent; color: var(--lp-muted, #8A9199);
+  font: 800 10px/1 ui-monospace, Menlo, monospace; letter-spacing: .16em;
+  transition: background .12s ease, color .12s ease;
 }
-.xeet-lp .perplev {
-  font: 700 11px/1 ui-monospace, Menlo, monospace;
-  color: var(--lp-paper, #F2F4F3); background: rgba(255, 255, 255, .06);
-  border: 1px solid var(--lp-line, #23272B); border-radius: 8px;
-  padding: 6px 8px; cursor: pointer; margin-right: auto;
+.xeet-lp .modetab:hover { color: var(--lp-paper, #F2F4F3); }
+.xeet-lp .modetab.on {
+  background: var(--lp-paper, #F2F4F3); color: #07080A;
 }
-.xeet-lp .perplev:hover { background: rgba(255, 255, 255, .12); }
-.xeet-lp .perpbtn {
-  font: 800 11px/1 var(--lp-disp, system-ui); letter-spacing: .08em;
-  border-radius: 9px; padding: 8px 14px; cursor: pointer; border: 1px solid transparent;
-}
-.xeet-lp .perpbtn.long { color: #04170F; background: #00E08A; }
-.xeet-lp .perpbtn.short { color: #1A0509; background: #FF4D6D; }
-.xeet-lp .perpbtn:hover { filter: brightness(1.08); }
-.xeet-lp .perpbtn:active { transform: translateY(1px); }
 
-/* ------------------------------------------- leverage, next to the sizes */
-/* Two halves and a hinge. The sides are the same height as the amount tiles
-   below them so the deck reads as one object, and the leverage sits in the
-   middle where it cannot be mistaken for belonging to either side. */
-.xeet-lp .microstrip {
-  display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px;
-  margin: 0 0 6px;
+.xeet-lp .levface { display: flex; flex-direction: column; gap: 6px; }
+/* Sizes and multipliers read as one scale each, so they share a shape and
+   differ only in what they say. */
+.xeet-lp .levrow { display: flex; gap: 6px; }
+.xeet-lp .levchip {
+  flex: 1; padding: 9px 0; cursor: pointer;
+  border: 1px solid var(--lp-line, #23272B); border-radius: 10px;
+  background: rgba(255, 255, 255, .03); color: var(--lp-paper, #F2F4F3);
+  font: 700 12px/1 ui-monospace, Menlo, monospace;
+  transition: background .12s ease, border-color .12s ease;
 }
-.xeet-lp .microbtn {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  padding: 10px 8px; border: 0; border-radius: 12px; cursor: pointer;
+.xeet-lp .levchip:hover { background: rgba(255, 255, 255, .09); }
+.xeet-lp .levchip.on {
+  background: var(--lp-paper, #F2F4F3); border-color: var(--lp-paper, #F2F4F3); color: #07080A;
+}
+/* Long and short carry the only colour in the panel, because picking the
+   wrong side is the one mistake the interface can prevent. */
+.xeet-lp .levdirs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 2px; }
+.xeet-lp .levbtn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  padding: 12px 8px; border: 0; border-radius: 12px; cursor: pointer;
   transition: filter .12s ease, transform .08s ease;
 }
-.xeet-lp .microbtn b { font: 800 13px/1 var(--lp-disp, system-ui); letter-spacing: .1em; }
-.xeet-lp .microbtn span { font: 600 10px/1 ui-monospace, Menlo, monospace; opacity: .7; }
-.xeet-lp .microbtn.long { color: #04170F; background: #16E08A; }
-.xeet-lp .microbtn.short { color: #1A0509; background: #FF4D6D; }
-.xeet-lp .microbtn:hover { filter: brightness(1.08); }
-.xeet-lp .microbtn:active { transform: translateY(1px); }
-.xeet-lp .microlev {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  min-width: 64px; padding: 10px 10px; cursor: pointer;
-  background: rgba(255, 255, 255, .05);
-  border: 1px solid var(--lp-line, #23272B); border-radius: 12px;
-  color: var(--lp-paper, #F2F4F3);
+.xeet-lp .levbtn b { font: 800 14px/1 var(--lp-disp, system-ui); letter-spacing: .12em; }
+.xeet-lp .levbtn span { font: 600 10px/1 ui-monospace, Menlo, monospace; opacity: .72; }
+.xeet-lp .levbtn.long { color: #04170F; background: #16E08A; }
+.xeet-lp .levbtn.short { color: #1A0509; background: #FF4D6D; }
+.xeet-lp .levbtn:hover { filter: brightness(1.08); }
+.xeet-lp .levbtn:active { transform: translateY(1px); }
+/* The line that says what the position actually is — size, liquidation and
+   the cap this pool allows. It is not fine print: it is the product. */
+.xeet-lp .levnote {
+  margin: 2px 0 0; font: 600 10px/1.5 ui-monospace, Menlo, monospace;
+  letter-spacing: .04em; color: var(--lp-muted, #8A9199);
 }
-.xeet-lp .microlev b { font: 800 13px/1 ui-monospace, Menlo, monospace; }
-.xeet-lp .microlev span { font: 600 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .14em; color: var(--lp-muted, #8A9199); }
-.xeet-lp .microlev:hover { background: rgba(255, 255, 255, .1); }
+/* An open position, and the way out of it. */
+.xeet-lp .levopen {
+  display: flex; align-items: center; gap: 8px; margin-top: 6px;
+  padding: 8px 10px; border-radius: 10px;
+  border: 1px solid var(--lp-line, #23272B); background: rgba(22, 224, 138, .07);
+  font: 600 10px/1 ui-monospace, Menlo, monospace; letter-spacing: .06em;
+  color: var(--lp-muted, #8A9199);
+}
+.xeet-lp .levopen.down { background: rgba(255, 77, 109, .08); }
+.xeet-lp .levopen b { margin-left: auto; font: 800 11px/1 ui-monospace, Menlo, monospace; color: #16E08A; }
+.xeet-lp .levopen.down b { color: #FF4D6D; }
+.xeet-lp .levclose {
+  border: 1px solid var(--lp-line, #23272B); border-radius: 8px; cursor: pointer;
+  padding: 5px 9px; background: rgba(255, 255, 255, .06); color: var(--lp-paper, #F2F4F3);
+  font: 800 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .12em;
+}
+.xeet-lp .levclose:hover { background: rgba(255, 255, 255, .14); }
+.xeet-lp .levclose:disabled { opacity: .5; cursor: default; }
