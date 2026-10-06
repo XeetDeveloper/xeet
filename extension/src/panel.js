@@ -1448,7 +1448,7 @@
           ? `The book for this coin is full — $${vault.roomNotional.toFixed(0)} of room left`
           : houseShort
             ? "The vault cannot cover a win this size right now"
-            : `${vault.preview ? "LOCAL PREVIEW · " : ""}Xeet vault · $${size} at ${lev}x · a long liquidates near `
+            : `Xeet vault · $${size} at ${lev}x · a long liquidates near `
               + `${liqLong ? F.price(liqLong) : "—"} · profit capped at ${payoutMult}x your margin`
       : !w.address
         ? "Connect a wallet to trade perps — the margin stays in your own exchange account"
@@ -1582,7 +1582,7 @@
         usd, leverage, isLong,
       });
       flipTo(reviewCard(
-        (isLong ? "Long opened" : "Short opened") + (res.preview ? " · preview" : ""),
+        isLong ? "Long opened" : "Short opened",
         `${t.symbol} · $${usd} at ${leverage}x` + (res.price ? ` at ${res.price}` : ""),
       ));
       levFace();
